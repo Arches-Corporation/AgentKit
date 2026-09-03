@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const registry = require('../src/core/registry.cjs');
 const { CONFIG_FILENAME, findRepoRoot, loadConfig } = require('../src/core/lib/config.cjs');
+const { DEFAULT_DIR, loadAll } = require('../src/core/lib/local.cjs');
 const { hooksFragment } = require('../src/adapters/claude/settings-fragment.cjs');
 
 function usage() {
@@ -43,12 +44,37 @@ function cmdInit(args) {
     process.stdout.write(`${CONFIG_FILENAME} exists — left untouched\n`);
   }
 
+  const localDirPath = path.join(root, DEFAULT_DIR);
+  if (!fs.existsSync(localDirPath)) {
+    fs.mkdirSync(localDirPath, { recursive: true });
+    fs.writeFileSync(
+      path.join(localDirPath, 'README.md'),
+      'Repo-local guardrails. One file per guardrail, `<name>.cjs`, exporting\n' +
+      '{ name, events, matcher, failClosed, defaults, check(event, ctx) } —\n' +
+      'same contract as AgentKit built-ins (see docs/local-guardrails.md in the package).\n' +
+      'Re-run `npx agentkit init --tool claude` after adding one to wire it.\n'
+    );
+    process.stdout.write(`scaffolded ${DEFAULT_DIR}/\n`);
+  }
+
+  const config = loadConfig(root);
+  const local = loadAll(config, root);
+  for (const e of local.errors) process.stdout.write(`warn local guardrail ${e}\n`);
+  const builtinNames = new Set(registry.list().map((g) => g.name));
+  const localOk = local.guardrails.filter((g) => {
+    if (builtinNames.has(g.name)) {
+      process.stdout.write(`warn local guardrail "${g.name}" shadows a built-in — ignored\n`);
+      return false;
+    }
+    return true;
+  });
+
   const settingsPath = path.join(root, '.claude', 'settings.json');
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch { settings = {}; }
   settings.hooks = settings.hooks || {};
 
-  const fragment = hooksFragment();
+  const fragment = hooksFragment(localOk);
   for (const [event, entries] of Object.entries(fragment)) {
     settings.hooks[event] = settings.hooks[event] || [];
     const existing = new Set(
@@ -62,7 +88,8 @@ function cmdInit(args) {
 
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-  process.stdout.write(`wired ${registry.list().length} guardrails into .claude/settings.json\n`);
+  const localNote = localOk.length ? ` + ${localOk.length} local` : '';
+  process.stdout.write(`wired ${registry.list().length} built-in${localNote} guardrails into .claude/settings.json\n`);
   process.stdout.write('next: review agentkit.config.json (ticketPattern, codePathPatterns, specDirTemplate)\n');
 }
 
@@ -108,12 +135,31 @@ function cmdDoctor() {
     process.stdout.write('warn no .claude/settings.json (run: agentkit init --tool claude)\n');
   }
 
+  const local = loadAll(loadConfig(root), root);
+  for (const e of local.errors) {
+    ok = false;
+    process.stdout.write(`FAIL local guardrail ${e}\n`);
+  }
+  const builtinNames = new Set(registry.list().map((g) => g.name));
+  for (const g of local.guardrails) {
+    if (builtinNames.has(g.name)) {
+      process.stdout.write(`warn local guardrail "${g.name}" shadows a built-in — ignored at runtime\n`);
+    } else {
+      process.stdout.write(`ok   local guardrail ${g.name}\n`);
+    }
+  }
+
   process.exit(ok ? 0 : 1);
 }
 
 function cmdList() {
   for (const g of registry.list()) {
     process.stdout.write(`${g.name.padEnd(16)} ${g.events.join(',')}${g.matcher ? ` (${g.matcher})` : ''}\n`);
+  }
+  const root = findRepoRoot(process.cwd());
+  const local = loadAll(loadConfig(root), root);
+  for (const g of local.guardrails) {
+    process.stdout.write(`${g.name.padEnd(16)} ${g.events.join(',')}${g.matcher ? ` (${g.matcher})` : ''} (local)\n`);
   }
 }
 

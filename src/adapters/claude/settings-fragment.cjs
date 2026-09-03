@@ -4,9 +4,9 @@ const registry = require('../../core/registry.cjs');
 
 const RUNNER = 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches/agentkit/src/adapters/claude/run.cjs"';
 
-function hooksFragment() {
+function hooksFragment(extraGuardrails = []) {
   const byEvent = {};
-  for (const g of registry.list()) {
+  for (const g of registry.list().concat(extraGuardrails)) {
     for (const event of g.events) {
       byEvent[event] = byEvent[event] || [];
       byEvent[event].push(g);

@@ -4,6 +4,7 @@
 const fs = require('fs');
 const registry = require('../../core/registry.cjs');
 const { findRepoRoot, loadConfig, isEnabled, optionsFor, stateDir } = require('../../core/lib/config.cjs');
+const { loadByName } = require('../../core/lib/local.cjs');
 const { createMarkers } = require('../../core/lib/markers.cjs');
 const { createLog } = require('../../core/lib/log.cjs');
 
@@ -39,16 +40,16 @@ function normalize(input) {
 
 function main() {
   const name = process.argv[2];
-  const guardrail = name && registry.get(name);
-  if (!guardrail) {
-    process.stderr.write(`agentkit: unknown guardrail "${name || ''}"\n`);
-    process.exit(1);
-  }
-
   const input = readStdin();
   const event = normalize(input);
   const repoRoot = findRepoRoot(event.cwd);
   const config = loadConfig(repoRoot);
+
+  const guardrail = (name && registry.get(name)) || (name && loadByName(config, repoRoot, name));
+  if (!guardrail) {
+    process.stderr.write(`agentkit: unknown guardrail "${name || ''}"\n`);
+    process.exit(1);
+  }
 
   if (!isEnabled(config, guardrail.name)) process.exit(0);
 

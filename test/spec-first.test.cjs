@@ -91,6 +91,19 @@ test('spec-first: custom specDirTemplate respected', () => {
   assert.strictEqual(specFirst.check(commitEvent(repo), ctx), null);
 });
 
+test('spec-first: requireSpecDir false enforces ticket only', () => {
+  const withTicket = gitRepo('feat/AIS2-23-tracking');
+  stageCode(withTicket, 'src/a.js');
+  const ctx = ctxFor(withTicket, { ticketPattern: 'AIS2?-\\d+', requireSpecDir: false });
+  assert.strictEqual(specFirst.check(commitEvent(withTicket), ctx), null);
+
+  const noTicket = gitRepo('feature/no-ticket');
+  stageCode(noTicket, 'src/a.js');
+  const ctx2 = ctxFor(noTicket, { ticketPattern: 'AIS2?-\\d+', requireSpecDir: false });
+  const r = specFirst.check(commitEvent(noTicket), ctx2);
+  assert.ok(r && /no ticket/.test(r.block));
+});
+
 test('spec-first: non-commit command ignored', () => {
   const repo = gitRepo('feature/no-ticket');
   stageCode(repo, 'src/a.js');

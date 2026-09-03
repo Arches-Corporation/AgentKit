@@ -13,7 +13,7 @@ npx agentkit init --tool claude
 npx agentkit doctor
 ```
 
-`init` writes an `agentkit.config.json` skeleton and wires the guardrails into `.claude/settings.json` (idempotent — safe to re-run). Adjust the config to your repo (ticket pattern, code paths, spec dir), commit both files.
+`init` writes an `agentkit.config.json` skeleton and wires the guardrails into `.claude/settings.json` (idempotent — safe to re-run). Adjust the config to your repo (ticket pattern, code paths, spec dir), commit both files. Full per-repo recipe incl. pure-Rails repos and SSH installs: [docs/onboarding.md](docs/onboarding.md).
 
 ## Guardrails (the cookbook)
 
@@ -49,11 +49,13 @@ src/adapters/claude/*   stdin JSON -> normalized event -> exit 0/2 contract
 bin/agentkit.cjs        CLI
 ```
 
-Core never touches stdin or `process.exit` — that's the adapter's job. Adding a vendor = one new adapter; guardrail logic is untouched. Local repo-specific hooks (e.g. EKB's `dev-rules-reminder`) coexist fine — `init` merges, never overwrites.
+Core never touches stdin or `process.exit` — that's the adapter's job. Adding a vendor = one new adapter; guardrail logic is untouched.
+
+**Repo-specific rules** live in the consuming repo at `.agentkit/guardrails/<name>.cjs` — same contract, same runner, wired by `init`, shown as `(local)` in `list`. Used by a second repo? Promote it into the kit. See [docs/local-guardrails.md](docs/local-guardrails.md).
 
 ## Development
 
 ```bash
 nvm use
-npm test        # node --test, 34 cases
+npm test        # node --test, 41 cases
 ```

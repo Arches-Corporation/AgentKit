@@ -11,6 +11,7 @@ const DEFAULTS = {
   ticketPattern: '[A-Z][A-Z0-9]+-\\d+',
   codePathPatterns: ['^(src|app|lib)/'],
   specDirTemplate: 'docs/specs/features/{ticket}',
+  requireSpecDir: true,
 };
 
 function git(args, cwd) {
@@ -54,6 +55,8 @@ function check(event, ctx) {
         `or (if genuinely exempt) run:\n${markerHint}`,
     };
   }
+
+  if (!opts.requireSpecDir) return null;
 
   const specDir = path.join(repoRoot, opts.specDirTemplate.replace('{ticket}', ticket));
   let hasSpec = false;
