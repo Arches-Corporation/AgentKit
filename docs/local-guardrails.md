@@ -1,6 +1,6 @@
 # Local guardrails
 
-AgentKit ships the rules shared by every repo. Rules that belong to **one** repo live in that repo — same contract, same runner, no hand-rolled hook plumbing.
+Repo-local guardrails are the **prototyping tier**: try a rule in one repo without a kit release. Established project rules belong in a [project pack](project-packs.md) inside AgentKit; shared rules become built-ins. Same contract at every tier.
 
 ## Where
 
@@ -32,7 +32,7 @@ module.exports = {
 };
 ```
 
-- `event` = `{ hookEvent, toolName, command, paths[], prompt, cwd, sessionId }`
+- `event` = `{ hookEvent, toolName, command, paths[], prompt, cwd, sessionId, raw }` — `raw` is the untouched hook input for fields the normalizer doesn't map (e.g. `transcript_path`, `trigger`, `source`)
 - `ctx` = `{ repoRoot, options, markers, log }` — options come from `agentkit.config.json` under the guardrail's name; markers give one-shot approval files; log writes to the shared jsonl.
 - Return `null` (allow), `{ block: reason }`, or `{ inject: text }`.
 

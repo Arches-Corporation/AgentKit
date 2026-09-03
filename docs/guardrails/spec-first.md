@@ -42,6 +42,7 @@ One-shot — consumed by the next commit.
 | `codePathPatterns` | `["^(src|app|lib)/"]` | staged paths matching any regex count as product code |
 | `specDirTemplate` | `docs/specs/features/{ticket}` | where a spec must exist; `{ticket}` is replaced (uppercased) |
 | `requireSpecDir` | `true` | `false` = enforce ticket-in-branch only, skip the spec-dir lookup — for repos whose spec tool uses slug-named dirs (e.g. openspec) |
+| `hintText` | `""` | repo-specific guidance appended to block messages (e.g. where the spec template lives) |
 | `approvalMarker` | `spec-approved` | one-shot exemption marker |
 
 **Tune these per repo** — the defaults fit a generic single-app layout; monorepos need explicit `codePathPatterns`.

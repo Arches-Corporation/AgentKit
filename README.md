@@ -26,6 +26,9 @@ Installs track latest `main`. The lockfile freezes the resolved commit for the t
 | `privacy-block` | PreToolUse (Read/Edit/Write/Bash) | reading or touching secret-bearing files (`.env`, keys, credentials) | [docs/guardrails/privacy-block.md](docs/guardrails/privacy-block.md) |
 | `secret-output` | UserPromptSubmit | prompts containing private keys, AWS keys, inline credentials | [docs/guardrails/secret-output.md](docs/guardrails/secret-output.md) |
 | `scout-block` | PreToolUse (Read/Bash) | reading vendored/generated dirs (`node_modules`, `dist`, …) that flood context | [docs/guardrails/scout-block.md](docs/guardrails/scout-block.md) |
+| `force-push-guard` | PreToolUse (Bash) | `git push --force`/`-f` (and `--force-with-lease` unless allowed) without a one-shot marker | [docs/guardrails/force-push-guard.md](docs/guardrails/force-push-guard.md) |
+| `db-guard` | PreToolUse (Bash) | destructive db ops — `rails db:drop/reset`, SQL `DROP`/`TRUNCATE`, `docker compose down -v` | [docs/guardrails/db-guard.md](docs/guardrails/db-guard.md) |
+| `rules-reminder` | UserPromptSubmit | nothing — injects your configured rule summary once per session (silent until `text` is set) | [docs/guardrails/rules-reminder.md](docs/guardrails/rules-reminder.md) |
 
 Every block message tells the agent the compliant next step. Escape hatches are deliberate and auditable: one-shot marker files (`hard-stop`, `spec-first`) or an `APPROVED:` prefix (`privacy-block`, `scout-block`), each logged to `.agentkit/state/guardrail-log.jsonl`.
 
@@ -46,18 +49,24 @@ agentkit hook <name>          run one guardrail (stdin JSON) — what settings.j
 
 ```
 src/core/guardrails/*   pure checks: check(event, ctx) -> null | {block} | {inject}
+src/projects/<name>/*   project packs — same contract, selected via config "project"
 src/core/lib/*          config, one-shot markers, text parsing, jsonl log
-src/adapters/claude/*   stdin JSON -> normalized event -> exit 0/2 contract
-bin/agentkit.cjs        CLI
+src/adapters/claude/*   stdin JSON -> normalized event -> exit 0/2 contract (stable)
+src/adapters/cursor/*   Cursor hooks protocol -> permission/continue replies (beta)
+bin/agentkit.cjs        CLI — init --tool claude|cursor, doctor, list, hook
 ```
+
+Adapter status & event mapping: [docs/adapters.md](docs/adapters.md). Gemini has no hook surface yet — rules reach it via the repo's `GEMINI.md` only.
 
 Core never touches stdin or `process.exit` — that's the adapter's job. Adding a vendor = one new adapter; guardrail logic is untouched.
 
-**Repo-specific rules** live in the consuming repo at `.agentkit/guardrails/<name>.cjs` — same contract, same runner, wired by `init`, shown as `(local)` in `list`. Used by a second repo? Promote it into the kit. See [docs/local-guardrails.md](docs/local-guardrails.md).
+**Project-specific rules** also live in the kit, as packs: `src/projects/<project>/` (today: `ekb`). A repo opts in with `"project": "<name>"` in its config (`agentkit init --project <name>`). Resolution: built-in → pack → repo-local (`.agentkit/guardrails/`, the prototyping tier). Lifecycle: prototype local → stabilize into the pack → generalize into a built-in. See [docs/project-packs.md](docs/project-packs.md) and [docs/local-guardrails.md](docs/local-guardrails.md).
 
 ## Development
 
 ```bash
 nvm use
-npm test        # node --test, 41 cases
+npm test        # node --test
 ```
+
+`main` is protected — changes land via PR (CI must pass). On merge, the release workflow versions automatically: manual bump in package.json → tagged as-is; otherwise auto-bump from the merge commit message (`feat:` → minor, breaking (`!`/`BREAKING`) → major, else patch) and tagged `vX.Y.Z`.

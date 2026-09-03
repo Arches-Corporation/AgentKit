@@ -1,0 +1,56 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Tag or bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          LATEST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$PKG_VERSION" != "$LATEST_TAG" ]; then
+            echo "package.json ($PKG_VERSION) ahead of latest tag ($LATEST_TAG) — tagging as-is"
+            git tag "$PKG_VERSION"
+            git push origin "$PKG_VERSION"
+            exit 0
+          fi
+          MSG="$(git log -1 --pretty=%s)"
+          case "$MSG" in
+            *"!"*|*BREAKING*) BUMP=major ;;
+            feat*)            BUMP=minor ;;
+            *)                BUMP=patch ;;
+          esac
+          echo "auto-bump: $BUMP (from: $MSG)"
+          NEW_VERSION="$(npm version "$BUMP" --no-git-tag-version)"
+          BRANCH="release/$NEW_VERSION"
+          git checkout -b "$BRANCH"
+          git commit -am "chore(release): $NEW_VERSION"
+          git push -u origin "$BRANCH"
+          git tag "$NEW_VERSION"
+          git push origin "$NEW_VERSION"
+          gh pr create --base main --head "$BRANCH" --title "chore(release): $NEW_VERSION" \
+            --body "Automated version bump ($BUMP) from: $MSG"
+          gh pr merge "$BRANCH" --merge --delete-branch
