@@ -6,21 +6,32 @@ const DEFAULTS = {
   approvalMarker: 'git-approved',
 };
 
+function gitSegments(cmd) {
+  return cmd
+    .split(/&&|\|\||;|\|/)
+    .map((s) => s.trim())
+    .filter((s) => /\bgit\s+(commit|push)\b/.test(s));
+}
+
 function check(event, ctx) {
   const cmd = event.command;
   if (!cmd) return null;
 
-  const isCommit = /\bgit\s+commit\b/.test(cmd);
-  const shortNoVerify = isCommit && /(?:^|\s)-[a-z]*n[a-z]*\b/.test(cmd);
-  if (/--no-verify\b/.test(cmd) || shortNoVerify) {
-    return {
-      block:
-        'BLOCKED: skipping git hooks (`--no-verify` / `commit -n`) bypasses the quality gates. ' +
-        'The HARD STOP rule forbids it — fix the failing hook instead of skipping it.',
-    };
+  const segments = gitSegments(cmd);
+  for (const seg of segments) {
+    const flagsOnly = seg.replace(/"(?:\\.|[^"\\])*"|'[^']*'/g, '');
+    const isCommit = /\bgit\s+commit\b/.test(flagsOnly);
+    const shortNoVerify = isCommit && /(?:^|\s)-[a-z]*n[a-z]*\b/.test(flagsOnly);
+    if (/--no-verify\b/.test(flagsOnly) || shortNoVerify) {
+      return {
+        block:
+          'BLOCKED: skipping git hooks (`--no-verify` / `commit -n`) bypasses the quality gates. ' +
+          'The HARD STOP rule forbids it — fix the failing hook instead of skipping it.',
+      };
+    }
   }
 
-  if (/\bgit\s+(commit|push)\b/.test(cmd)) {
+  if (segments.length) {
     const marker = ctx.options.approvalMarker || DEFAULTS.approvalMarker;
     if (ctx.markers.consume(marker)) return null;
     return {

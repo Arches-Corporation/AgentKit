@@ -64,6 +64,34 @@ test('hard-stop: benign command allowed', () => {
   assert.strictEqual(hardStop.check(bashEvent('ls -la'), makeCtx()), null);
 });
 
+test('hard-stop: -n outside the git segment does not trip --no-verify', () => {
+  const ctx = makeCtx();
+  ctx.markers.place('git-approved');
+  const cmd = 'git commit -m "fix stuff" && bash -n script.sh';
+  assert.strictEqual(hardStop.check(bashEvent(cmd), ctx), null);
+});
+
+test('hard-stop: -n inside quoted commit message does not trip', () => {
+  const ctx = makeCtx();
+  ctx.markers.place('git-approved');
+  const cmd = 'git commit -m "verified via bash -n and --no-verify docs"';
+  assert.strictEqual(hardStop.check(bashEvent(cmd), ctx), null);
+});
+
+test('hard-stop: real -n flag on commit still blocked even with marker', () => {
+  const ctx = makeCtx();
+  ctx.markers.place('git-approved');
+  const r = hardStop.check(bashEvent('git commit -n -m "x"'), ctx);
+  assert.ok(r && /no-verify/.test(r.block));
+});
+
+test('hard-stop: --no-verify in non-git segment allowed', () => {
+  const ctx = makeCtx();
+  ctx.markers.place('git-approved');
+  const cmd = 'echo --no-verify > note.txt && git commit -m ok';
+  assert.strictEqual(hardStop.check(bashEvent(cmd), ctx), null);
+});
+
 test('hard-stop: marker allows once, then consumed', () => {
   const ctx = makeCtx();
   ctx.markers.place('git-approved');

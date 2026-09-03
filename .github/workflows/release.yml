@@ -34,9 +34,14 @@ jobs:
           PKG_VERSION="v$(node -p "require('./package.json').version")"
           if [ "$PKG_VERSION" != "$LATEST_TAG" ]; then
             echo "package.json ($PKG_VERSION) ahead of latest tag ($LATEST_TAG) — tagging as-is"
-            git tag "$PKG_VERSION"
-            git push origin "$PKG_VERSION"
-            gh release create "$PKG_VERSION" --verify-tag --generate-notes --title "$PKG_VERSION"
+            if git rev-parse "refs/tags/$PKG_VERSION" >/dev/null 2>&1; then
+              echo "tag $PKG_VERSION already exists — skipping tag"
+            else
+              git tag "$PKG_VERSION"
+              git push origin "$PKG_VERSION"
+            fi
+            gh release view "$PKG_VERSION" >/dev/null 2>&1 || \
+              gh release create "$PKG_VERSION" --verify-tag --generate-notes --title "$PKG_VERSION"
             exit 0
           fi
           if git rev-parse HEAD^2 >/dev/null 2>&1; then
@@ -61,7 +66,7 @@ jobs:
           git push -u origin "$BRANCH"
           git tag "$NEW_VERSION"
           git push origin "$NEW_VERSION"
-          gh pr create --base main --head "$BRANCH" --title "chore(release): $NEW_VERSION" \
-            --body "Automated version bump ($BUMP) from: $MSG"
+          BODY="$(printf 'Automated %s bump. Commits in the triggering push:\n\n%s' "$BUMP" "$(echo "$MSGS" | sed 's/^/- /')")"
+          gh pr create --base main --head "$BRANCH" --title "chore(release): $NEW_VERSION" --body "$BODY"
           gh pr merge "$BRANCH" --merge --delete-branch
           gh release create "$NEW_VERSION" --verify-tag --generate-notes --title "$NEW_VERSION"
