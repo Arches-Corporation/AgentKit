@@ -1,0 +1,22 @@
+{
+  "name": "@arches/agentkit",
+  "version": "1.0.0",
+  "description": "Shared agentic guardrails for Arches repos — vendor-neutral core, per-tool adapters",
+  "license": "UNLICENSED",
+  "private": false,
+  "type": "commonjs",
+  "bin": {
+    "agentkit": "bin/agentkit.cjs"
+  },
+  "main": "src/core/registry.cjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arches-Corporation/AgentKit.git"
+  }
+}

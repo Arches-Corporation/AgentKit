@@ -1,0 +1,28 @@
+{
+  "stateDir": ".agentkit/state",
+  "guardrails": {
+    "hard-stop": {
+      "enabled": true,
+      "approvalMarker": "git-approved"
+    },
+    "spec-first": {
+      "enabled": true,
+      "approvalMarker": "spec-approved",
+      "ticketPattern": "EKB-\\d+",
+      "codePathPatterns": ["^(apps/web/src/|apps/api/(app|lib|db)/)"],
+      "specDirTemplate": "docs/specs/features/{ticket}"
+    },
+    "privacy-block": {
+      "enabled": true
+    },
+    "secret-output": {
+      "enabled": true,
+      "extraPatterns": []
+    },
+    "scout-block": {
+      "enabled": true,
+      "ignoreFile": ".ckignore",
+      "fallbackDirs": ["node_modules", "dist", "build", ".next", "coverage", "vendor"]
+    }
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+.agentkit/
+*.log
+.DS_Store
+!src/core/lib/
