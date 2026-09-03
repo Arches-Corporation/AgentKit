@@ -1,0 +1,6 @@
+# Default: kit maintainer
+* @TungLam2222
+
+# Project packs — owned by the project that the rules belong to.
+# Add a line per new pack so its team reviews changes to its own rules.
+/src/projects/ekb/ @TungLam2222

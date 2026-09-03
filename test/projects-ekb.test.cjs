@@ -48,6 +48,26 @@ test('ekb pack: pr-body-contract allows full body', () => {
   assert.strictEqual(r.status, 0);
 });
 
+test('ekb pack: pr-body-contract skips PRs created in a different repo (cd elsewhere)', () => {
+  const repo = ekbRepo();
+  const otherRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-other-'));
+  const bad = path.join(otherRepo, 'body.md');
+  fs.writeFileSync(bad, 'no template at all');
+  const cmd = `cd ${otherRepo} && gh pr create --title x --body-file ${bad}`;
+  const r = runHook('pr-body-contract', { tool_name: 'Bash', tool_input: { command: cmd }, cwd: repo }, repo);
+  assert.strictEqual(r.status, 0);
+});
+
+test('ekb pack: pr-body-contract still enforces after cd within the repo', () => {
+  const repo = ekbRepo();
+  fs.mkdirSync(path.join(repo, 'apps', 'web'), { recursive: true });
+  const bad = path.join(repo, 'body.md');
+  fs.writeFileSync(bad, 'nope');
+  const cmd = `cd apps/web && gh pr create --title x --body-file ${bad}`;
+  const r = runHook('pr-body-contract', { tool_name: 'Bash', tool_input: { command: cmd }, cwd: repo }, repo);
+  assert.strictEqual(r.status, 2);
+});
+
 test('ekb pack: precompact-capture writes snapshot with transcript', () => {
   const repo = ekbRepo();
   const r = runHook('precompact-capture', { hook_event_name: 'PreCompact', trigger: 'manual', transcript_path: '/tmp/t.jsonl', cwd: repo }, repo);
