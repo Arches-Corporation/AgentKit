@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentKit configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "stateDir": {
+      "type": "string",
+      "description": "Runtime state dir (markers, logs) relative to repo root",
+      "default": ".agentkit/state"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Project pack name (src/projects/<name>/ in AgentKit)"
+    },
+    "localGuardrailsDir": {
+      "type": "string",
+      "description": "Repo-local guardrails dir (prototyping tier)",
+      "default": ".agentkit/guardrails"
+    },
+    "guardrails": {
+      "type": "object",
+      "description": "Per-guardrail settings, keyed by guardrail name",
+      "properties": {
+        "hard-stop": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "approvalMarker": { "type": "string" }
+          }
+        },
+        "spec-first": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "approvalMarker": { "type": "string" },
+            "ticketPattern": { "type": "string", "description": "Regex matched against the branch name" },
+            "codePathPatterns": { "type": "array", "items": { "type": "string" } },
+            "specDirTemplate": { "type": "string", "description": "{ticket} is replaced with the uppercased ticket id" },
+            "requireSpecDir": { "type": "boolean" },
+            "hintText": { "type": "string" }
+          }
+        },
+        "privacy-block": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "sensitive": { "type": "array", "items": { "type": "string" } },
+            "safe": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "secret-output": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "extraPatterns": { "$ref": "#/definitions/patternList" }
+          }
+        },
+        "scout-block": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "ignoreFile": { "type": "string" },
+            "fallbackDirs": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "force-push-guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "allowForceWithLease": { "type": "boolean" },
+            "approvalMarker": { "type": "string" }
+          }
+        },
+        "db-guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "extraPatterns": { "$ref": "#/definitions/patternList" },
+            "approvalMarker": { "type": "string" }
+          }
+        },
+        "rules-reminder": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "text": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ]
+            },
+            "oncePerSession": { "type": "boolean" }
+          }
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "Pack or repo-local guardrail settings — keys validated by `agentkit doctor` against the guardrail's declared defaults",
+        "properties": {
+          "enabled": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "patternList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern"],
+        "properties": {
+          "pattern": { "type": "string" },
+          "flags": { "type": "string" },
+          "label": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -34,7 +34,9 @@ Every block message tells the agent the compliant next step. Escape hatches are 
 
 ## Configuration
 
-`agentkit.config.json` at the consuming repo root. Full reference: [agentkit.config.example.json](agentkit.config.example.json) (shown with EKB's values). Per guardrail: `enabled` plus options documented in its cookbook page. Defaults are sane for a generic repo; `spec-first` is the one you almost always tune (`ticketPattern`, `codePathPatterns`, `specDirTemplate`).
+`agentkit.config.json` at the consuming repo root. Full reference: [agentkit.config.example.json](agentkit.config.example.json) (shown with EKB's values); JSON Schema for editor autocomplete: [agentkit.config.schema.json](agentkit.config.schema.json) (`init` writes the `$schema` pointer). Per guardrail: `enabled` plus options documented in its cookbook page. Defaults are sane for a generic repo; `spec-first` is the one you almost always tune (`ticketPattern`, `codePathPatterns`, `specDirTemplate`).
+
+`agentkit doctor` validates strictly: unknown keys, wrong option types, and invalid regexes **fail**; so does wiring drift (an enabled guardrail missing from `.claude/settings.json`, a stale entry, or a wrong event/matcher).
 
 ## CLI
 

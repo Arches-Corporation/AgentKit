@@ -21,11 +21,26 @@ function resolveBody(cmd, cwd) {
   return null;
 }
 
-function check(event) {
+function effectiveDir(cmd, cwd) {
+  let dir = cwd || process.cwd();
+  const re = /(?:^|&&|;|\|\|)\s*cd\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/g;
+  let m;
+  while ((m = re.exec(cmd)) !== null) {
+    const target = (m[1] || m[2] || m[3]).replace(/^~(?=\/|$)/, process.env.HOME || '~');
+    dir = path.isAbsolute(target) ? target : path.resolve(dir, target);
+  }
+  return dir;
+}
+
+function check(event, ctx) {
   const cmd = event.command;
   if (!cmd || !/\bgh\s+pr\s+create\b/.test(cmd)) return null;
 
-  const body = resolveBody(cmd, event.cwd);
+  const dir = effectiveDir(cmd, event.cwd);
+  const rel = path.relative(ctx.repoRoot, dir);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+
+  const body = resolveBody(cmd, dir);
   if (body === null) return null;
 
   const missing = REQUIRED.filter((r) => !r.re.test(body)).map((r) => r.label);
