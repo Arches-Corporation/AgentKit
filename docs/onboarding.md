@@ -4,26 +4,45 @@ Five minutes per repo. Works for any shape — JS monorepo, pure Rails, anything
 
 ## Steps
 
+**Use the repo's own package manager** — check `packageManager` in package.json or the lockfile (`package-lock.json` = npm, `pnpm-lock.yaml` = pnpm, `yarn.lock` = yarn). Mixing managers corrupts the lockfile or fails on peer deps.
+
 ```bash
 cd <repo>
 
-echo "20" > .nvmrc && nvm use
+nvm use   # repo's .nvmrc; if none: echo "20" > .nvmrc && nvm use
 
 # pure Rails / no package.json yet:
 npm init -y
 # then set "private": true and strip noise fields
 
-npm i -D "github:Arches-Corporation/AgentKit#v1.0.0"
+# npm repo:
+npm i -D "github:Arches-Corporation/AgentKit"
+# pnpm workspace (-w = workspace root):
+pnpm add -D -w "github:Arches-Corporation/AgentKit"
+# yarn:
+yarn add -D "Arches-Corporation/AgentKit"
 
 npx agentkit init --tool claude
 npx agentkit doctor
 ```
 
+Unpinned = latest `main` at install time; the lockfile freezes the resolved commit for everyone else. Append `#vX.Y.Z` only to roll back to a known release.
+
 SSH-only GitHub auth (host alias like `github-arches`)? The `github:` shorthand uses HTTPS. Use the git+ssh form instead:
 
 ```bash
-npm i -D "git+ssh://git@github-arches/Arches-Corporation/AgentKit.git#v1.0.0"
+npm i -D "git+ssh://git@github-arches/Arches-Corporation/AgentKit.git"
 ```
+
+## Refreshing to the latest kit
+
+```bash
+npm i -D "github:Arches-Corporation/AgentKit"   # repo's own manager — re-resolves main, bumps the lock
+npx agentkit init --tool claude   # only when the update added a guardrail (idempotent)
+npx agentkit doctor
+```
+
+Logic fixes inside existing guardrails need the install only. Commit the bumped lockfile so the team picks it up on next install.
 
 ## Tune `agentkit.config.json`
 

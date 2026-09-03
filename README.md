@@ -7,11 +7,13 @@ Extracted from EKB's battle-tested `.claude/hooks/` (spec `docs/specs/features/E
 ## Install (any repo)
 
 ```bash
-nvm use 20
-npm install github:Arches-Corporation/AgentKit
+nvm use
+npm i -D "github:Arches-Corporation/AgentKit"   # use the repo's own package manager; pnpm: add -D -w · yarn: add -D
 npx agentkit init --tool claude
 npx agentkit doctor
 ```
+
+Installs track latest `main`. The lockfile freezes the resolved commit for the team — to pull the newest kit, re-run the install command (it re-resolves and bumps the lock). Tags (`#vX.Y.Z`) exist for rollback if a release misbehaves.
 
 `init` writes an `agentkit.config.json` skeleton and wires the guardrails into `.claude/settings.json` (idempotent — safe to re-run). Adjust the config to your repo (ticket pattern, code paths, spec dir), commit both files. Full per-repo recipe incl. pure-Rails repos and SSH installs: [docs/onboarding.md](docs/onboarding.md).
 
