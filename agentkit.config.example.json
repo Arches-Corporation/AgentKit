@@ -10,7 +10,8 @@
       "approvalMarker": "spec-approved",
       "ticketPattern": "EKB-\\d+",
       "codePathPatterns": ["^(apps/web/src/|apps/api/(app|lib|db)/)"],
-      "specDirTemplate": "docs/specs/features/{ticket}"
+      "specDirTemplate": "docs/specs/features/{ticket}",
+      "hintText": "Write docs/specs/features/<TICKET>/spec.md — Light vs Full lane per AGENTS.md §Spec rule."
     },
     "privacy-block": {
       "enabled": true
@@ -23,6 +24,21 @@
       "enabled": true,
       "ignoreFile": ".ckignore",
       "fallbackDirs": ["node_modules", "dist", "build", ".next", "coverage", "vendor"]
+    },
+    "force-push-guard": {
+      "enabled": true,
+      "allowForceWithLease": false,
+      "approvalMarker": "force-push-approved"
+    },
+    "db-guard": {
+      "enabled": true,
+      "extraPatterns": [],
+      "approvalMarker": "db-approved"
+    },
+    "rules-reminder": {
+      "enabled": true,
+      "text": [],
+      "oncePerSession": true
     }
   }
 }

@@ -63,7 +63,10 @@ Set `codePathPatterns` to what counts as product code: Rails `["^(app|lib|db)/"]
 package.json + package-lock.json
 agentkit.config.json
 .claude/settings.json
+.agentkit/guardrails/        (local guardrails — committed source)
 ```
+
+Gitignore `.agentkit/state/` only — never the whole `.agentkit/` dir, or local guardrails silently stop being shared.
 
 ## Gotchas
 

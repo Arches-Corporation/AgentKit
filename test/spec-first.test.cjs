@@ -104,6 +104,14 @@ test('spec-first: requireSpecDir false enforces ticket only', () => {
   assert.ok(r && /no ticket/.test(r.block));
 });
 
+test('spec-first: hintText appears in block messages', () => {
+  const repo = gitRepo('feat/EKB-9-x');
+  stageCode(repo, 'src/a.js');
+  const ctx = ctxFor(repo, { hintText: 'Write docs/specs/features/<TICKET>/spec.md per AGENTS.md.' });
+  const r = specFirst.check(commitEvent(repo), ctx);
+  assert.ok(r && /per AGENTS\.md/.test(r.block));
+});
+
 test('spec-first: non-commit command ignored', () => {
   const repo = gitRepo('feature/no-ticket');
   stageCode(repo, 'src/a.js');

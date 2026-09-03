@@ -12,6 +12,7 @@ const DEFAULTS = {
   codePathPatterns: ['^(src|app|lib)/'],
   specDirTemplate: 'docs/specs/features/{ticket}',
   requireSpecDir: true,
+  hintText: '',
 };
 
 function git(args, cwd) {
@@ -46,12 +47,13 @@ function check(event, ctx) {
   const ticket = m ? m[0].toUpperCase() : null;
   const sample = code.slice(0, 3).join(', ') + (code.length > 3 ? ', …' : '');
   const markerHint = `  touch "${ctx.markers.markerPath(opts.approvalMarker)}"\nthen re-commit (marker is one-shot).`;
+  const hint = opts.hintText ? ` ${opts.hintText}` : '';
 
   if (!ticket) {
     return {
       block:
         `BLOCKED: spec-first — product code staged (${sample}) on a branch with no ticket ` +
-        `("${branch}"). Rule: no code without a spec. Create the ticket + spec first, ` +
+        `("${branch}"). Rule: no code without a spec.${hint} Create the ticket + spec first, ` +
         `or (if genuinely exempt) run:\n${markerHint}`,
     };
   }
@@ -67,7 +69,7 @@ function check(event, ctx) {
       block:
         `BLOCKED: spec-first — product code for ${ticket} staged (${sample}) but ` +
         `${opts.specDirTemplate.replace('{ticket}', ticket)}/ has no spec. Rule: no code without ` +
-        `a spec (write it first). Stage the spec in this commit, or (if genuinely exempt) run:\n${markerHint}`,
+        `a spec (write it first).${hint} Stage the spec in this commit, or (if genuinely exempt) run:\n${markerHint}`,
     };
   }
 

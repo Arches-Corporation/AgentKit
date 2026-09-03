@@ -67,6 +67,17 @@ test('local guardrail: cannot shadow a built-in at runtime', () => {
   assert.match(r.stderr, /HARD STOP/);
 });
 
+test('local guardrail: receives raw input on event', () => {
+  const repo = tmpRepoWithLocal();
+  fs.writeFileSync(
+    path.join(repo, '.agentkit', 'guardrails', 'raw-echo.cjs'),
+    "module.exports = { name: 'raw-echo', events: ['PreCompact'], matcher: null, check: (e) => e.raw && e.raw.trigger === 'manual' ? { block: 'raw-ok' } : null };"
+  );
+  const r = runHook('raw-echo', { hook_event_name: 'PreCompact', trigger: 'manual', cwd: repo }, repo);
+  assert.strictEqual(r.status, 2);
+  assert.match(r.stderr, /raw-ok/);
+});
+
 test('init wires local guardrails and doctor reports them', () => {
   const repo = tmpRepoWithLocal();
   const init = spawnSync('node', [CLI, 'init', '--tool', 'claude'], { encoding: 'utf8', cwd: repo });
