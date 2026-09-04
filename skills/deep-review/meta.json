@@ -1,0 +1,7 @@
+{
+  "vars": {
+    "rulebook": "AGENTS.md",
+    "apiContractRow": "Endpoint matches spec route/verb; serializer covers all fields; FE API config updated per the repo's convention",
+    "designSystemRow": "Matches the repo's design-system doc: reuses a canonical component (no forked duplicate); uses tokens/scales; no new raw hex/`rgb`/px for a covered value; no duplicate style vars for an existing shade"
+  }
+}

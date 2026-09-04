@@ -1,0 +1,7 @@
+{
+  "vars": {
+    "ciGateNote": "",
+    "beConventions": "The backend app's conventions doc (auth framework, serializers, validation contracts, soft-delete).",
+    "staticScanStep": "Run the repo's static analyzers first if available (e.g. `brakeman`, `bundler-audit`) and triage any NEW warning; then do the reasoning pass below (static analysis is not a substitute for it)."
+  }
+}

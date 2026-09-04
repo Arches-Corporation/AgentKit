@@ -20,6 +20,23 @@
       "description": "Repo-local guardrails dir (prototyping tier)",
       "default": ".agentkit/guardrails"
     },
+    "skills": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Managed-skill distribution settings (agentkit sync)",
+      "properties": {
+        "vars": {
+          "type": "object",
+          "description": "Template variables rendered into managed skills",
+          "additionalProperties": { "type": "string" }
+        },
+        "exclude": {
+          "type": "array",
+          "description": "Kit skill names this repo opts out of",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "guardrails": {
       "type": "object",
       "description": "Per-guardrail settings, keyed by guardrail name",

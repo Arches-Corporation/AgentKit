@@ -8,6 +8,7 @@ const { CONFIG_FILENAME, findRepoRoot, loadConfig } = require('../src/core/lib/c
 const { DEFAULT_DIR, loadAll } = require('../src/core/lib/local.cjs');
 const { packName, packExists, loadPack, listPacks } = require('../src/core/lib/projects.cjs');
 const { validateConfig, checkClaudeWiring } = require('../src/core/lib/validate.cjs');
+const skillsLib = require('../src/core/lib/skills.cjs');
 const { hooksFragment } = require('../src/adapters/claude/settings-fragment.cjs');
 
 function usage() {
@@ -15,8 +16,9 @@ function usage() {
     'agentkit <command>\n\n' +
     'Commands:\n' +
     '  init --tool claude|cursor [--project <pack>]   Wire guardrails + write config skeleton\n' +
-    '  doctor               Strict check: node, config keys/types/regexes, pack, wiring drift\n' +
-    '  list                 List guardrails: built-in, project pack, local\n' +
+    '  sync [--check]       Render + install managed skills (shared + pack); --check = dry-run for CI\n' +
+    '  doctor               Strict check: node, config, pack, wiring drift, skill drift\n' +
+    '  list                 List guardrails and skills: built-in, project pack, local\n' +
     '  hook <name>          Run one guardrail as a Claude hook (stdin JSON)\n'
   );
 }
@@ -154,6 +156,70 @@ function cmdInit(args) {
   process.stdout.write('next: review agentkit.config.json (ticketPattern, codePathPatterns, specDirTemplate)\n');
 }
 
+function cmdSync(args) {
+  const checkOnly = args.includes('--check');
+  const root = findRepoRoot(process.cwd());
+  const cfg = loadConfig(root);
+  const project = packName(cfg);
+
+  const { rendered, errors } = skillsLib.renderAll(cfg, project);
+  if (errors.length) {
+    for (const e of errors) process.stderr.write(`FAIL ${e}\n`);
+    process.exit(1);
+  }
+  if (!rendered.length) {
+    process.stdout.write('no skills to sync (none in kit for this configuration)\n');
+    process.exit(0);
+  }
+
+  const manifest = skillsLib.readManifest(root);
+  const actions = skillsLib.planSync(root, rendered, manifest);
+  const drift = actions.filter((a) => a.type === 'drift');
+  const changes = actions.filter((a) => a.type === 'create' || a.type === 'update' || a.type === 'delete');
+
+  for (const a of actions) {
+    if (a.type === 'unchanged') continue;
+    process.stdout.write(`${a.type.padEnd(9)} ${a.name.padEnd(26)} ${a.target}${a.reason ? ` (${a.reason})` : ''}\n`);
+  }
+
+  if (drift.length) {
+    process.stderr.write(
+      `FAIL ${drift.length} locally edited managed skill(s) — revert the edit, or copy it to a repo-local skill and add the name to skills.exclude, then re-run\n`
+    );
+    process.exit(1);
+  }
+
+  if (checkOnly) {
+    if (changes.length) {
+      process.stdout.write(`sync --check: ${changes.length} pending change(s)\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`sync --check: clean (${rendered.length} skills in sync)\n`);
+    process.exit(0);
+  }
+
+  const byName = new Map(rendered.map((r) => [r.name, r]));
+  for (const a of actions) {
+    if (a.type === 'create' || a.type === 'update') {
+      const r = byName.get(a.name);
+      const abs = path.join(root, r.target);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, r.content);
+    } else if (a.type === 'delete') {
+      try {
+        fs.rmSync(path.join(root, a.target));
+        const dir = path.dirname(path.join(root, a.target));
+        if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
+      } catch { /* already gone */ }
+    }
+  }
+
+  let kitVersion = 'unknown';
+  try { kitVersion = require('../package.json').version; } catch { /* keep unknown */ }
+  skillsLib.writeManifest(root, kitVersion, rendered);
+  process.stdout.write(`synced ${rendered.length} skills (${changes.length} changed) — manifest: ${skillsLib.MANIFEST_REL}\n`);
+}
+
 function cmdDoctor() {
   let ok = true;
   const fail = (msg) => { ok = false; process.stdout.write(`FAIL ${msg}\n`); };
@@ -214,7 +280,7 @@ function cmdDoctor() {
     }
   }
 
-  const resolved = { builtins, pack: packOk, locals: localOk };
+  const resolved = { builtins, pack: packOk, locals: localOk, skillNames: skillsLib.allSkillNames(project) };
   const validation = validateConfig(cfg, resolved);
   for (const e of validation.errors) fail(`${CONFIG_FILENAME}: ${e}`);
   if (!validation.errors.length && fs.existsSync(configPath)) good(`${CONFIG_FILENAME} valid (keys, option types, regexes)`);
@@ -238,6 +304,36 @@ function cmdDoctor() {
     }
   } else {
     warn('no .claude/settings.json (run: agentkit init --tool claude)');
+  }
+
+  const skillsCheck = skillsLib.renderAll(cfg, project);
+  {
+    const manifest = skillsLib.readManifest(root);
+    if (!manifest) {
+      if (skillsCheck.errors.length) {
+        warn(`kit skills not configured (${skillsCheck.errors.length} missing var(s)) — set skills.vars, then run: agentkit sync`);
+      } else if (skillsCheck.rendered.length) {
+        warn(`${skillsCheck.rendered.length} kit skills available but never synced (run: agentkit sync)`);
+      }
+    } else if (skillsCheck.errors.length) {
+      for (const e of skillsCheck.errors) fail(e);
+    } else if (skillsCheck.rendered.length) {
+      const actions = skillsLib.planSync(root, skillsCheck.rendered, manifest);
+      let skillsOk = true;
+      for (const a of actions) {
+        if (a.type === 'drift') {
+          skillsOk = false;
+          fail(`skill "${a.name}" locally edited (${a.target}) — revert, or copy to a repo-local skill and add to skills.exclude`);
+        } else if (a.type === 'create') {
+          skillsOk = false;
+          fail(`skill "${a.name}" missing at ${a.target} (run: agentkit sync)`);
+        } else if (a.type === 'update' || a.type === 'delete') {
+          skillsOk = false;
+          warn(`skill "${a.name}" out of date (run: agentkit sync)`);
+        }
+      }
+      if (skillsOk) good(`${skillsCheck.rendered.length} managed skills in sync`);
+    }
   }
 
   const cursorHooksPath = path.join(root, '.cursor', 'hooks.json');
@@ -271,12 +367,20 @@ function cmdList() {
   for (const g of loadAll(config, root).guardrails) {
     process.stdout.write(`${g.name.padEnd(18)} ${g.events.join(',')}${g.matcher ? ` (${g.matcher})` : ''} (local)\n`);
   }
+  const skills = skillsLib.resolveSkills(config, project);
+  if (skills.length) {
+    process.stdout.write('\nskills:\n');
+    for (const s of skills) {
+      process.stdout.write(`${s.name.padEnd(26)} -> ${s.installPath} (${s.tier})\n`);
+    }
+  }
 }
 
 function main() {
   const [cmd, ...args] = process.argv.slice(2);
   switch (cmd) {
     case 'init': return cmdInit(args);
+    case 'sync': return cmdSync(args);
     case 'doctor': return cmdDoctor();
     case 'list': return cmdList();
     case 'hook': {

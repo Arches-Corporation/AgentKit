@@ -1,0 +1,6 @@
+{
+  "vars": {
+    "targetBranch": "develop",
+    "checksLine": "the repo's typecheck + lint commands"
+  }
+}
