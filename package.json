@@ -1,6 +1,6 @@
 {
   "name": "@arches/agentkit",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Shared agentic guardrails for Arches repos — vendor-neutral core, per-tool adapters",
   "license": "UNLICENSED",
   "private": false,
