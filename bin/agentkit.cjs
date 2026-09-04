@@ -169,7 +169,7 @@ function cmdSync(args) {
     process.exit(1);
   }
   if (!rendered.length) {
-    process.stdout.write('no skills to sync (none in kit for this configuration)\n');
+    process.stdout.write('no assets to sync (none in kit for this configuration)\n');
     process.exit(0);
   }
 
@@ -180,12 +180,12 @@ function cmdSync(args) {
 
   for (const a of actions) {
     if (a.type === 'unchanged') continue;
-    process.stdout.write(`${a.type.padEnd(9)} ${a.name.padEnd(26)} ${a.target}${a.reason ? ` (${a.reason})` : ''}\n`);
+    process.stdout.write(`${a.type.padEnd(9)} ${(a.kind + ':' + a.name).padEnd(30)} ${a.target}${a.reason ? ` (${a.reason})` : ''}\n`);
   }
 
   if (drift.length) {
     process.stderr.write(
-      `FAIL ${drift.length} locally edited managed skill(s) — revert the edit, or copy it to a repo-local skill and add the name to skills.exclude, then re-run\n`
+      `FAIL ${drift.length} locally edited managed asset(s) — revert the edit, or copy it to a repo-local one and add the name to the kind's exclude list, then re-run\n`
     );
     process.exit(1);
   }
@@ -195,14 +195,14 @@ function cmdSync(args) {
       process.stdout.write(`sync --check: ${changes.length} pending change(s)\n`);
       process.exit(1);
     }
-    process.stdout.write(`sync --check: clean (${rendered.length} skills in sync)\n`);
+    process.stdout.write(`sync --check: clean (${rendered.length} assets in sync)\n`);
     process.exit(0);
   }
 
-  const byName = new Map(rendered.map((r) => [r.name, r]));
+  const byKey = new Map(rendered.map((r) => [`${r.kind}:${r.name}`, r]));
   for (const a of actions) {
     if (a.type === 'create' || a.type === 'update') {
-      const r = byName.get(a.name);
+      const r = byKey.get(`${a.kind}:${a.name}`);
       const abs = path.join(root, r.target);
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, r.content);
@@ -218,7 +218,7 @@ function cmdSync(args) {
   let kitVersion = 'unknown';
   try { kitVersion = require('../package.json').version; } catch { /* keep unknown */ }
   skillsLib.writeManifest(root, kitVersion, rendered);
-  process.stdout.write(`synced ${rendered.length} skills (${changes.length} changed) — manifest: ${skillsLib.MANIFEST_REL}\n`);
+  process.stdout.write(`synced ${rendered.length} assets (${changes.length} changed) — manifest: ${skillsLib.MANIFEST_REL}\n`);
 }
 
 function cmdDoctor(args = []) {
@@ -281,7 +281,14 @@ function cmdDoctor(args = []) {
     }
   }
 
-  const resolved = { builtins, pack: packOk, locals: localOk, skillNames: skillsLib.allSkillNames(project) };
+  const resolved = {
+    builtins,
+    pack: packOk,
+    locals: localOk,
+    skillNames: skillsLib.allAssetNames(project, 'skill'),
+    commandNames: skillsLib.allAssetNames(project, 'command'),
+    agentNames: skillsLib.allAssetNames(project, 'agent'),
+  };
   const validation = validateConfig(cfg, resolved);
   for (const e of validation.errors) fail(`${CONFIG_FILENAME}: ${e}`);
   if (!validation.errors.length && fs.existsSync(configPath)) good(`${CONFIG_FILENAME} valid (keys, option types, regexes)`);
@@ -307,33 +314,33 @@ function cmdDoctor(args = []) {
     warn('no .claude/settings.json (run: agentkit init --tool claude)');
   }
 
-  const skillsCheck = skillsLib.renderAll(cfg, project);
+  const assetsCheck = skillsLib.renderAll(cfg, project);
   {
     const manifest = skillsLib.readManifest(root);
     if (!manifest) {
-      if (skillsCheck.errors.length) {
-        warn(`kit skills not configured (${skillsCheck.errors.length} missing var(s)) — set skills.vars, then run: agentkit sync`);
-      } else if (skillsCheck.rendered.length) {
-        warn(`${skillsCheck.rendered.length} kit skills available but never synced (run: agentkit sync)`);
+      if (assetsCheck.errors.length) {
+        warn(`kit assets not configured (${assetsCheck.errors.length} missing var(s)) — set skills.vars, then run: agentkit sync`);
+      } else if (assetsCheck.rendered.length) {
+        warn(`${assetsCheck.rendered.length} kit assets available but never synced (run: agentkit sync)`);
       }
-    } else if (skillsCheck.errors.length) {
-      for (const e of skillsCheck.errors) fail(e);
-    } else if (skillsCheck.rendered.length) {
-      const actions = skillsLib.planSync(root, skillsCheck.rendered, manifest);
-      let skillsOk = true;
+    } else if (assetsCheck.errors.length) {
+      for (const e of assetsCheck.errors) fail(e);
+    } else if (assetsCheck.rendered.length) {
+      const actions = skillsLib.planSync(root, assetsCheck.rendered, manifest);
+      let assetsOk = true;
       for (const a of actions) {
         if (a.type === 'drift') {
-          skillsOk = false;
-          fail(`skill "${a.name}" locally edited (${a.target}) — revert, or copy to a repo-local skill and add to skills.exclude`);
+          assetsOk = false;
+          fail(`${a.kind} "${a.name}" locally edited (${a.target}) — revert, or copy to a repo-local one and add to the kind's exclude list`);
         } else if (a.type === 'create') {
-          skillsOk = false;
-          fail(`skill "${a.name}" missing at ${a.target} (run: agentkit sync)`);
+          assetsOk = false;
+          fail(`${a.kind} "${a.name}" missing at ${a.target} (run: agentkit sync)`);
         } else if (a.type === 'update' || a.type === 'delete') {
-          skillsOk = false;
-          warn(`skill "${a.name}" out of date (run: agentkit sync)`);
+          assetsOk = false;
+          warn(`${a.kind} "${a.name}" out of date (run: agentkit sync)`);
         }
       }
-      if (skillsOk) good(`${skillsCheck.rendered.length} managed skills in sync`);
+      if (assetsOk) good(`${assetsCheck.rendered.length} managed assets in sync`);
     }
   }
 
@@ -382,11 +389,13 @@ function cmdList() {
   for (const g of loadAll(config, root).guardrails) {
     process.stdout.write(`${g.name.padEnd(18)} ${g.events.join(',')}${g.matcher ? ` (${g.matcher})` : ''} (local)\n`);
   }
-  const skills = skillsLib.resolveSkills(config, project);
-  if (skills.length) {
-    process.stdout.write('\nskills:\n');
-    for (const s of skills) {
-      process.stdout.write(`${s.name.padEnd(26)} -> ${s.installPath} (${s.tier})\n`);
+  const assets = skillsLib.resolveAssets(config, project);
+  for (const kind of Object.keys(skillsLib.KINDS)) {
+    const ofKind = assets.filter((a) => a.kind === kind);
+    if (!ofKind.length) continue;
+    process.stdout.write(`\n${kind}s:\n`);
+    for (const a of ofKind) {
+      process.stdout.write(`${a.name.padEnd(26)} -> ${a.installPath} (${a.tier})\n`);
     }
   }
 }

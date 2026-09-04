@@ -1,31 +1,31 @@
 'use strict';
 
-const TOP_LEVEL_KEYS = new Set(['$schema', 'stateDir', 'project', 'localGuardrailsDir', 'guardrails', 'skills']);
+const TOP_LEVEL_KEYS = new Set(['$schema', 'stateDir', 'project', 'localGuardrailsDir', 'guardrails', 'skills', 'commands', 'agents']);
 
-function validateSkillsSection(skillsCfg, knownSkillNames, errors) {
-  if (!skillsCfg || typeof skillsCfg !== 'object' || Array.isArray(skillsCfg)) {
-    errors.push('skills: must be an object');
+function validateAssetSection(sectionName, sectionCfg, allowedKeys, kindLabel, knownNames, errors) {
+  if (!sectionCfg || typeof sectionCfg !== 'object' || Array.isArray(sectionCfg)) {
+    errors.push(`${sectionName}: must be an object`);
     return;
   }
-  for (const key of Object.keys(skillsCfg)) {
-    if (!['vars', 'exclude'].includes(key)) errors.push(`skills.${key}: unknown key (known: vars, exclude)`);
+  for (const key of Object.keys(sectionCfg)) {
+    if (!allowedKeys.includes(key)) errors.push(`${sectionName}.${key}: unknown key (known: ${allowedKeys.join(', ')})`);
   }
-  if (skillsCfg.vars !== undefined) {
-    if (!skillsCfg.vars || typeof skillsCfg.vars !== 'object' || Array.isArray(skillsCfg.vars)) {
-      errors.push('skills.vars: must be an object of string values');
+  if (allowedKeys.includes('vars') && sectionCfg.vars !== undefined) {
+    if (!sectionCfg.vars || typeof sectionCfg.vars !== 'object' || Array.isArray(sectionCfg.vars)) {
+      errors.push(`${sectionName}.vars: must be an object of string values`);
     } else {
-      for (const [k, v] of Object.entries(skillsCfg.vars)) {
-        if (typeof v !== 'string') errors.push(`skills.vars.${k}: must be a string`);
+      for (const [k, v] of Object.entries(sectionCfg.vars)) {
+        if (typeof v !== 'string') errors.push(`${sectionName}.vars.${k}: must be a string`);
       }
     }
   }
-  if (skillsCfg.exclude !== undefined) {
-    if (!Array.isArray(skillsCfg.exclude)) {
-      errors.push('skills.exclude: must be an array of skill names');
-    } else if (knownSkillNames) {
-      for (const name of skillsCfg.exclude) {
-        if (typeof name !== 'string') errors.push('skills.exclude: entries must be strings');
-        else if (!knownSkillNames.has(name)) errors.push(`skills.exclude: no such skill "${name}"`);
+  if (sectionCfg.exclude !== undefined) {
+    if (!Array.isArray(sectionCfg.exclude)) {
+      errors.push(`${sectionName}.exclude: must be an array of ${kindLabel} names`);
+    } else if (knownNames) {
+      for (const name of sectionCfg.exclude) {
+        if (typeof name !== 'string') errors.push(`${sectionName}.exclude: entries must be strings`);
+        else if (!knownNames.has(name)) errors.push(`${sectionName}.exclude: no such ${kindLabel} "${name}"`);
       }
     }
   }
@@ -139,7 +139,13 @@ function validateConfig(config, resolved) {
   }
 
   if (config.skills !== undefined) {
-    validateSkillsSection(config.skills, resolved.skillNames || null, errors);
+    validateAssetSection('skills', config.skills, ['vars', 'exclude'], 'skill', resolved.skillNames || null, errors);
+  }
+  if (config.commands !== undefined) {
+    validateAssetSection('commands', config.commands, ['exclude'], 'command', resolved.commandNames || null, errors);
+  }
+  if (config.agents !== undefined) {
+    validateAssetSection('agents', config.agents, ['exclude'], 'agent', resolved.agentNames || null, errors);
   }
 
   const guardrailsCfg = config.guardrails;

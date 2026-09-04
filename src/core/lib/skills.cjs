@@ -4,21 +4,49 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const SHARED_DIR = path.join(__dirname, '..', '..', '..', 'skills');
+const KIT_ROOT = path.join(__dirname, '..', '..', '..');
 const PACKS_DIR = path.join(__dirname, '..', '..', 'projects');
 const MANIFEST_REL = '.agentkit/skills.manifest.json';
 const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 const PLACEHOLDER_RE = /\{\{([a-zA-Z][a-zA-Z0-9]*)\}\}/g;
 
+const KINDS = {
+  skill: {
+    sharedDir: path.join(KIT_ROOT, 'skills'),
+    packSubdir: 'skills',
+    file: 'SKILL.md',
+    defaultTarget: (name) => `.agents/skills/${name}/SKILL.md`,
+    configKey: 'skills',
+  },
+  command: {
+    sharedDir: path.join(KIT_ROOT, 'commands'),
+    packSubdir: 'commands',
+    file: 'COMMAND.md',
+    defaultTarget: (name) => `.claude/commands/${name}.md`,
+    configKey: 'commands',
+  },
+  agent: {
+    sharedDir: path.join(KIT_ROOT, 'agents'),
+    packSubdir: 'agents',
+    file: 'AGENT.md',
+    defaultTarget: (name) => `.claude/agents/${name}.md`,
+    configKey: 'agents',
+  },
+};
+
 function sha256(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function readSkillDir(dir, name, tier) {
-  const skillPath = path.join(dir, name, 'SKILL.md');
+function assetKey(kind, name) {
+  return `${kind}:${name}`;
+}
+
+function readAssetDir(dir, name, tier, kind) {
+  const spec = KINDS[kind];
   let template;
   try {
-    template = fs.readFileSync(skillPath, 'utf8');
+    template = fs.readFileSync(path.join(dir, name, spec.file), 'utf8');
   } catch {
     return null;
   }
@@ -28,53 +56,67 @@ function readSkillDir(dir, name, tier) {
   } catch { /* meta is optional */ }
   return {
     name,
+    kind,
     tier,
     template,
-    installPath: typeof meta.installPath === 'string' ? meta.installPath : `.agents/skills/${name}/SKILL.md`,
+    installPath: typeof meta.installPath === 'string' ? meta.installPath : spec.defaultTarget(name),
     varDefaults: (meta.vars && typeof meta.vars === 'object') ? meta.vars : {},
   };
 }
 
-function listSkillDirs(dir) {
+function listAssetDirs(dir, kind) {
+  const spec = KINDS[kind];
   try {
     return fs.readdirSync(dir).filter((d) => {
       if (!NAME_RE.test(d)) return false;
-      try { return fs.statSync(path.join(dir, d, 'SKILL.md')).isFile(); } catch { return false; }
+      try { return fs.statSync(path.join(dir, d, spec.file)).isFile(); } catch { return false; }
     });
   } catch {
     return [];
   }
 }
 
-function resolveSkills(config, packNameValue) {
-  const skillsCfg = (config && config.skills) || {};
-  const exclude = new Set(Array.isArray(skillsCfg.exclude) ? skillsCfg.exclude : []);
+function resolveAssets(config, packNameValue) {
+  const assets = [];
+  for (const kind of Object.keys(KINDS)) {
+    const spec = KINDS[kind];
+    const kindCfg = (config && config[spec.configKey]) || {};
+    const exclude = new Set(Array.isArray(kindCfg.exclude) ? kindCfg.exclude : []);
 
-  const byName = new Map();
-  for (const name of listSkillDirs(SHARED_DIR)) {
-    byName.set(name, readSkillDir(SHARED_DIR, name, 'shared'));
-  }
-  if (packNameValue) {
-    const packSkillsDir = path.join(PACKS_DIR, packNameValue, 'skills');
-    for (const name of listSkillDirs(packSkillsDir)) {
-      byName.set(name, readSkillDir(packSkillsDir, name, `pack:${packNameValue}`));
+    const byName = new Map();
+    for (const name of listAssetDirs(spec.sharedDir, kind)) {
+      byName.set(name, readAssetDir(spec.sharedDir, name, 'shared', kind));
+    }
+    if (packNameValue) {
+      const packDir = path.join(PACKS_DIR, packNameValue, spec.packSubdir);
+      for (const name of listAssetDirs(packDir, kind)) {
+        byName.set(name, readAssetDir(packDir, name, `pack:${packNameValue}`, kind));
+      }
+    }
+
+    for (const [name, asset] of byName) {
+      if (exclude.has(name)) continue;
+      assets.push(asset);
     }
   }
+  return assets.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+}
 
-  const skills = [];
-  for (const [name, skill] of byName) {
-    if (exclude.has(name)) continue;
-    skills.push(skill);
+function resolveSkills(config, packNameValue) {
+  return resolveAssets(config, packNameValue).filter((a) => a.kind === 'skill');
+}
+
+function allAssetNames(packNameValue, kind) {
+  const spec = KINDS[kind];
+  const names = new Set(listAssetDirs(spec.sharedDir, kind));
+  if (packNameValue) {
+    for (const n of listAssetDirs(path.join(PACKS_DIR, packNameValue, spec.packSubdir), kind)) names.add(n);
   }
-  return skills.sort((a, b) => a.name.localeCompare(b.name));
+  return names;
 }
 
 function allSkillNames(packNameValue) {
-  const names = new Set(listSkillDirs(SHARED_DIR));
-  if (packNameValue) {
-    for (const n of listSkillDirs(path.join(PACKS_DIR, packNameValue, 'skills'))) names.add(n);
-  }
-  return names;
+  return allAssetNames(packNameValue, 'skill');
 }
 
 function buildVars(config) {
@@ -93,10 +135,10 @@ function buildVars(config) {
   return vars;
 }
 
-function render(skill, vars) {
-  const merged = Object.assign({}, skill.varDefaults, vars);
+function render(asset, vars) {
+  const merged = Object.assign({}, asset.varDefaults, vars);
   const missing = new Set();
-  const content = skill.template.replace(PLACEHOLDER_RE, (whole, varName) => {
+  const content = asset.template.replace(PLACEHOLDER_RE, (whole, varName) => {
     if (merged[varName] === undefined) {
       missing.add(varName);
       return whole;
@@ -110,16 +152,17 @@ function renderAll(config, packNameValue) {
   const vars = buildVars(config);
   const rendered = [];
   const errors = [];
-  for (const skill of resolveSkills(config, packNameValue)) {
-    const { content, missing } = render(skill, vars);
+  for (const asset of resolveAssets(config, packNameValue)) {
+    const { content, missing } = render(asset, vars);
     if (missing.length) {
-      errors.push(`skill "${skill.name}": unresolved template vars: ${missing.join(', ')} — set skills.vars in agentkit.config.json`);
+      errors.push(`${asset.kind} "${asset.name}": unresolved template vars: ${missing.join(', ')} — set skills.vars in agentkit.config.json`);
       continue;
     }
     rendered.push({
-      name: skill.name,
-      tier: skill.tier,
-      target: skill.installPath,
+      name: asset.name,
+      kind: asset.kind,
+      tier: asset.tier,
+      target: asset.installPath,
       content,
       hash: sha256(content),
     });
@@ -130,7 +173,11 @@ function renderAll(config, packNameValue) {
 function readManifest(repoRoot) {
   try {
     const m = JSON.parse(fs.readFileSync(path.join(repoRoot, MANIFEST_REL), 'utf8'));
-    return (m && Array.isArray(m.entries)) ? m : { entries: [] };
+    if (!m || !Array.isArray(m.entries)) return { entries: [] };
+    for (const e of m.entries) {
+      if (e && e.kind === undefined) e.kind = 'skill';
+    }
+    return m;
   } catch {
     return null;
   }
@@ -138,9 +185,9 @@ function readManifest(repoRoot) {
 
 function writeManifest(repoRoot, kitVersion, rendered) {
   const manifest = {
-    version: 1,
+    version: 2,
     kitVersion,
-    entries: rendered.map(({ name, tier, target, hash }) => ({ name, tier, target, hash })),
+    entries: rendered.map(({ name, kind, tier, target, hash }) => ({ name, kind, tier, target, hash })),
   };
   const p = path.join(repoRoot, MANIFEST_REL);
   fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -158,31 +205,31 @@ function fileHash(repoRoot, target) {
 
 function planSync(repoRoot, rendered, manifest) {
   const actions = [];
-  const manifestByName = new Map(((manifest && manifest.entries) || []).map((e) => [e.name, e]));
+  const manifestByKey = new Map(((manifest && manifest.entries) || []).map((e) => [assetKey(e.kind, e.name), e]));
 
   for (const r of rendered) {
-    const prior = manifestByName.get(r.name);
+    const prior = manifestByKey.get(assetKey(r.kind, r.name));
     const onDisk = fileHash(repoRoot, r.target);
     if (prior && onDisk !== null && onDisk !== prior.hash) {
-      actions.push({ type: 'drift', name: r.name, target: r.target });
+      actions.push({ type: 'drift', name: r.name, kind: r.kind, target: r.target });
       continue;
     }
     if (onDisk === null) {
-      actions.push({ type: 'create', name: r.name, target: r.target });
+      actions.push({ type: 'create', name: r.name, kind: r.kind, target: r.target });
     } else if (onDisk !== r.hash) {
-      actions.push({ type: 'update', name: r.name, target: r.target });
+      actions.push({ type: 'update', name: r.name, kind: r.kind, target: r.target });
     } else {
-      actions.push({ type: 'unchanged', name: r.name, target: r.target });
+      actions.push({ type: 'unchanged', name: r.name, kind: r.kind, target: r.target });
     }
     if (prior && prior.target !== r.target) {
-      actions.push({ type: 'delete', name: r.name, target: prior.target, reason: 'target moved' });
+      actions.push({ type: 'delete', name: r.name, kind: r.kind, target: prior.target, reason: 'target moved' });
     }
   }
 
-  const renderedNames = new Set(rendered.map((r) => r.name));
+  const renderedKeys = new Set(rendered.map((r) => assetKey(r.kind, r.name)));
   for (const e of (manifest && manifest.entries) || []) {
-    if (!renderedNames.has(e.name)) {
-      actions.push({ type: 'delete', name: e.name, target: e.target, reason: 'removed from kit or excluded' });
+    if (!renderedKeys.has(assetKey(e.kind, e.name))) {
+      actions.push({ type: 'delete', name: e.name, kind: e.kind, target: e.target, reason: 'removed from kit or excluded' });
     }
   }
 
@@ -191,8 +238,11 @@ function planSync(repoRoot, rendered, manifest) {
 
 module.exports = {
   MANIFEST_REL,
+  KINDS,
   sha256,
+  allAssetNames,
   allSkillNames,
+  resolveAssets,
   resolveSkills,
   buildVars,
   render,
