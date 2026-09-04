@@ -22,7 +22,7 @@ function ekbConfig(extra = {}) {
   return Object.assign({
     project: 'ekb',
     guardrails: { 'spec-first': { ticketPattern: 'EKB-\\d+', specDirTemplate: 'docs/specs/features/{ticket}' } },
-    skills: { vars: EKB_VARS },
+    skills: { vars: Object.assign({}, EKB_VARS) },
   }, extra);
 }
 
@@ -165,7 +165,103 @@ test('doctor: unsynced repo warns, synced repo passes', () => {
   runCli(['sync'], repo);
   const after = runCli(['doctor'], repo);
   assert.strictEqual(after.status, 0, after.stdout);
-  assert.match(after.stdout, /managed skills in sync/);
+  assert.match(after.stdout, /managed assets in sync/);
+});
+
+test('kinds: ekb pack resolves commands and agents alongside skills', () => {
+  const assets = skillsLib.resolveAssets(ekbConfig(), 'ekb');
+  const byKind = (k) => assets.filter((a) => a.kind === k).map((a) => a.name);
+  for (const c of ['pr', 'ekb-up', 'verify-all']) assert.ok(byKind('command').includes(c), `command ${c}`);
+  for (const a of ['advisor', 'conductor', 'fe-agent', 'be-agent']) assert.ok(byKind('agent').includes(a), `agent ${a}`);
+  const pr = assets.find((a) => a.kind === 'command' && a.name === 'pr');
+  assert.strictEqual(pr.installPath, '.claude/commands/pr.md');
+  const advisor = assets.find((a) => a.kind === 'agent' && a.name === 'advisor');
+  assert.strictEqual(advisor.tier, 'shared');
+  assert.strictEqual(advisor.installPath, '.claude/agents/advisor.md');
+});
+
+test('kinds: advisor renders org vars, defaults apply without them', () => {
+  const { rendered, errors } = skillsLib.renderAll(ekbConfig(), 'ekb');
+  assert.deepStrictEqual(errors, []);
+  const advisor = rendered.find((r) => r.kind === 'agent' && r.name === 'advisor');
+  assert.match(advisor.content, /EKB decision advisor/);
+  assert.match(advisor.content, /`AGENTS\.md` constraints/);
+  const cfg = ekbConfig();
+  delete cfg.skills.vars.orgName;
+  const fallback = skillsLib.renderAll(cfg, 'ekb').rendered.find((r) => r.kind === 'agent' && r.name === 'advisor');
+  assert.match(fallback.content, /Arches decision advisor/);
+});
+
+test('kinds: no pack -> advisor only, no commands', () => {
+  const assets = skillsLib.resolveAssets({}, null);
+  assert.strictEqual(assets.filter((a) => a.kind === 'command').length, 0);
+  assert.deepStrictEqual(assets.filter((a) => a.kind === 'agent').map((a) => a.name), ['advisor']);
+});
+
+test('kinds: per-kind exclude, same name spaces independent', () => {
+  const cfg = ekbConfig({ skills: { vars: EKB_VARS }, commands: { exclude: ['ekb-up'] }, agents: { exclude: ['conductor'] } });
+  const assets = skillsLib.resolveAssets(cfg, 'ekb');
+  assert.ok(!assets.some((a) => a.kind === 'command' && a.name === 'ekb-up'));
+  assert.ok(!assets.some((a) => a.kind === 'agent' && a.name === 'conductor'));
+  assert.ok(assets.some((a) => a.kind === 'skill' && a.name === 'route'));
+});
+
+test('kinds: sync installs commands and agents, manifest v2 carries kind', () => {
+  const repo = tmpRepo(ekbConfig());
+  const out = runCli(['sync'], repo);
+  assert.strictEqual(out.status, 0, out.stderr + out.stdout);
+  assert.ok(fs.existsSync(path.join(repo, '.claude/commands/pr.md')));
+  assert.ok(fs.existsSync(path.join(repo, '.claude/agents/advisor.md')));
+  assert.ok(fs.existsSync(path.join(repo, '.claude/agents/be-agent.md')));
+  const manifest = JSON.parse(fs.readFileSync(path.join(repo, '.agentkit/skills.manifest.json'), 'utf8'));
+  assert.strictEqual(manifest.version, 2);
+  assert.ok(manifest.entries.some((e) => e.kind === 'command' && e.name === 'pr'));
+  assert.ok(manifest.entries.some((e) => e.kind === 'agent' && e.name === 'advisor'));
+  const prBody = fs.readFileSync(path.join(repo, '.claude/commands/pr.md'), 'utf8');
+  assert.match(prBody, /HARD STOP/);
+});
+
+test('kinds: v1 manifest reads compatibly — skills matched, new kinds created', () => {
+  const repo = tmpRepo(ekbConfig());
+  runCli(['sync'], repo);
+  const mPath = path.join(repo, '.agentkit/skills.manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+  const v1 = {
+    version: 1,
+    kitVersion: manifest.kitVersion,
+    entries: manifest.entries.filter((e) => e.kind === 'skill').map(({ name, tier, target, hash }) => ({ name, tier, target, hash })),
+  };
+  fs.writeFileSync(mPath, JSON.stringify(v1, null, 2));
+  fs.rmSync(path.join(repo, '.claude/commands'), { recursive: true });
+  fs.rmSync(path.join(repo, '.claude/agents'), { recursive: true });
+  const { rendered } = skillsLib.renderAll(ekbConfig(), 'ekb');
+  const actions = skillsLib.planSync(repo, rendered, skillsLib.readManifest(repo));
+  assert.ok(!actions.some((a) => a.kind === 'skill' && a.type !== 'unchanged'), JSON.stringify(actions.filter((a) => a.kind === 'skill' && a.type !== 'unchanged')));
+  assert.ok(actions.some((a) => a.kind === 'command' && a.type === 'create'));
+  assert.ok(actions.some((a) => a.kind === 'agent' && a.type === 'create'));
+});
+
+test('kinds: local edit to managed command is drift, doctor fails', () => {
+  const repo = tmpRepo(ekbConfig());
+  runCli(['sync'], repo);
+  fs.appendFileSync(path.join(repo, '.claude/commands/pr.md'), '\nlocal hack\n');
+  const doctor = runCli(['doctor'], repo);
+  assert.strictEqual(doctor.status, 1);
+  assert.match(doctor.stdout, /command "pr" locally edited/);
+});
+
+test('validate: unknown commands.exclude name fails doctor', () => {
+  const repo = tmpRepo(ekbConfig({ commands: { exclude: ['no-such-command'] } }));
+  const r = runCli(['doctor'], repo);
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /no such command "no-such-command"/);
+});
+
+test('validate: vars under commands rejected', () => {
+  const repo = tmpRepo(ekbConfig({ commands: { vars: { a: 'b' } } }));
+  const r = runCli(['doctor'], repo);
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /commands\.vars: unknown key/);
 });
 
 test('validate: unknown skills.exclude name fails doctor', () => {

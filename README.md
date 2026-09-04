@@ -10,7 +10,7 @@ Extracted from EKB's battle-tested `.claude/hooks/` (spec `docs/specs/features/E
 nvm use
 npm i -D "github:Arches-Corporation/AgentKit"   # use the repo's own package manager; pnpm: add -D -w · yarn: add -D
 npx agentkit init --tool claude
-npx agentkit sync      # install managed skills (set skills.vars first — see docs/skills.md)
+npx agentkit sync      # install managed skills/commands/agents (set skills.vars first — see docs/skills.md)
 npx agentkit doctor
 ```
 
@@ -33,9 +33,9 @@ Installs track latest `main`. The lockfile freezes the resolved commit for the t
 
 Every block message tells the agent the compliant next step. Escape hatches are deliberate and auditable: one-shot marker files (`hard-stop`, `spec-first`) or an `APPROVED:` prefix (`privacy-block`, `scout-block`), each logged to `.agentkit/state/guardrail-log.jsonl`.
 
-## Skills
+## Skills, commands, agents (synced assets)
 
-Templated agent playbooks distributed by `agentkit sync` — shared tier (deep-review, spec-check, pr-review, security-audit, performance-optimization, db-migration, jira-ticket, sentry-investigator) + pack tier (ekb: route, design-check, attach-pr-recording, e2e-testing). Repo supplies `skills.vars`; unresolved placeholders fail the sync; local edits to managed skills fail `doctor`. Full model: [docs/skills.md](docs/skills.md).
+Templated agent playbooks distributed by `agentkit sync` in three kinds — **skills** (`.agents/skills/`), **slash commands** (`.claude/commands/`), **subagents** (`.claude/agents/`). Shared tier: skills deep-review, spec-check, pr-review, security-audit, performance-optimization, db-migration, jira-ticket, sentry-investigator + agent advisor. ekb pack: skills route, design-check, attach-pr-recording, e2e-testing · commands pr, ekb-up, verify-all · agents conductor, fe-agent, be-agent. Repo supplies `skills.vars` (single pool for all kinds); unresolved placeholders fail the sync; local edits to managed assets fail `doctor`; per-kind opt-out via `skills.exclude` / `commands.exclude` / `agents.exclude`. Full model: [docs/skills.md](docs/skills.md).
 
 ## Configuration
 

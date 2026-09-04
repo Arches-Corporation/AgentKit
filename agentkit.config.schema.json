@@ -4,7 +4,9 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
     "stateDir": {
       "type": "string",
       "description": "Runtime state dir (markers, logs) relative to repo root",
@@ -23,17 +25,21 @@
     "skills": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Managed-skill distribution settings (agentkit sync)",
+      "description": "Managed-asset distribution settings (agentkit sync); vars is the single template-variable pool for all asset kinds",
       "properties": {
         "vars": {
           "type": "object",
           "description": "Template variables rendered into managed skills",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "exclude": {
           "type": "array",
           "description": "Kit skill names this repo opts out of",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -45,87 +51,188 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "approvalMarker": { "type": "string" }
+            "enabled": {
+              "type": "boolean"
+            },
+            "approvalMarker": {
+              "type": "string"
+            }
           }
         },
         "spec-first": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "approvalMarker": { "type": "string" },
-            "ticketPattern": { "type": "string", "description": "Regex matched against the branch name" },
-            "codePathPatterns": { "type": "array", "items": { "type": "string" } },
-            "specDirTemplate": { "type": "string", "description": "{ticket} is replaced with the uppercased ticket id" },
-            "requireSpecDir": { "type": "boolean" },
-            "hintText": { "type": "string" }
+            "enabled": {
+              "type": "boolean"
+            },
+            "approvalMarker": {
+              "type": "string"
+            },
+            "ticketPattern": {
+              "type": "string",
+              "description": "Regex matched against the branch name"
+            },
+            "codePathPatterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "specDirTemplate": {
+              "type": "string",
+              "description": "{ticket} is replaced with the uppercased ticket id"
+            },
+            "requireSpecDir": {
+              "type": "boolean"
+            },
+            "hintText": {
+              "type": "string"
+            }
           }
         },
         "privacy-block": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "sensitive": { "type": "array", "items": { "type": "string" } },
-            "safe": { "type": "array", "items": { "type": "string" } }
+            "enabled": {
+              "type": "boolean"
+            },
+            "sensitive": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "safe": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "secret-output": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "extraPatterns": { "$ref": "#/definitions/patternList" }
+            "enabled": {
+              "type": "boolean"
+            },
+            "extraPatterns": {
+              "$ref": "#/definitions/patternList"
+            }
           }
         },
         "scout-block": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "ignoreFile": { "type": "string" },
-            "fallbackDirs": { "type": "array", "items": { "type": "string" } }
+            "enabled": {
+              "type": "boolean"
+            },
+            "ignoreFile": {
+              "type": "string"
+            },
+            "fallbackDirs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "force-push-guard": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "allowForceWithLease": { "type": "boolean" },
-            "approvalMarker": { "type": "string" }
+            "enabled": {
+              "type": "boolean"
+            },
+            "allowForceWithLease": {
+              "type": "boolean"
+            },
+            "approvalMarker": {
+              "type": "string"
+            }
           }
         },
         "db-guard": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "extraPatterns": { "$ref": "#/definitions/patternList" },
-            "approvalMarker": { "type": "string" }
+            "enabled": {
+              "type": "boolean"
+            },
+            "extraPatterns": {
+              "$ref": "#/definitions/patternList"
+            },
+            "approvalMarker": {
+              "type": "string"
+            }
           }
         },
         "rules-reminder": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
+            "enabled": {
+              "type": "boolean"
+            },
             "text": {
               "oneOf": [
-                { "type": "string" },
-                { "type": "array", "items": { "type": "string" } }
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
               ]
             },
-            "oncePerSession": { "type": "boolean" }
+            "oncePerSession": {
+              "type": "boolean"
+            }
           }
         }
       },
       "additionalProperties": {
         "type": "object",
-        "description": "Pack or repo-local guardrail settings — keys validated by `agentkit doctor` against the guardrail's declared defaults",
+        "description": "Pack or repo-local guardrail settings \u2014 keys validated by `agentkit doctor` against the guardrail's declared defaults",
         "properties": {
-          "enabled": { "type": "boolean" }
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Managed command distribution settings (agentkit sync)",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "description": "Kit command names this repo opts out of",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Managed agent distribution settings (agentkit sync)",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "description": "Kit agent names this repo opts out of",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
@@ -136,11 +243,19 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["pattern"],
+        "required": [
+          "pattern"
+        ],
         "properties": {
-          "pattern": { "type": "string" },
-          "flags": { "type": "string" },
-          "label": { "type": "string" }
+          "pattern": {
+            "type": "string"
+          },
+          "flags": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
         }
       }
     }
