@@ -21,6 +21,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+      - name: Self-gate — full test suite
+        run: |
+          git config --global user.email ci@arches && git config --global user.name ci
+          npm test
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -64,6 +68,10 @@ jobs:
           git checkout -b "$BRANCH"
           git commit -am "chore(release): $NEW_VERSION"
           git push -u origin "$BRANCH"
+          HEAD_SHA="$(git rev-parse HEAD)"
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/$HEAD_SHA" \
+            -f state=success -f context=test \
+            -f description="self-gated: npm test passed in the release workflow"
           git tag "$NEW_VERSION"
           git push origin "$NEW_VERSION"
           BODY="$(printf 'Automated %s bump. Commits in the triggering push:\n\n%s' "$BUMP" "$(echo "$MSGS" | sed 's/^/- /')")"
