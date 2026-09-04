@@ -1,0 +1,6 @@
+{
+  "vars": {
+    "sentryOrg": "arches-sq",
+    "rulebook": "AGENTS.md"
+  }
+}

@@ -32,8 +32,10 @@ One repo = one pack. Packs shadow nothing: a pack guardrail named like a built-i
 
 Lifecycle: **prototype local → stabilize into the project's pack → generalize into a built-in** when a second project wants it.
 
+Packs carry **skills** too: `src/projects/<pack>/skills/<name>/SKILL.md`, distributed by `agentkit sync` alongside shared skills (see [skills.md](skills.md)). A pack skill overrides a shared skill of the same name.
+
 ## Current packs
 
-| Pack | Guardrails |
-|---|---|
-| `ekb` | `dev-rules-reminder` (context-aware rule injection), `pr-body-contract` (PR template + EKB ticket), `precompact-capture` + `session-restore` (session continuity) |
+| Pack | Guardrails | Skills |
+|---|---|---|
+| `ekb` | `dev-rules-reminder` (context-aware rule injection), `pr-body-contract` (PR template + EKB ticket), `precompact-capture` + `session-restore` (session continuity) | `route` (EKB tool map), `design-check` (design-system gate), `attach-pr-recording`, `e2e-testing` (installs to `apps/web/.claude/skills/`) |

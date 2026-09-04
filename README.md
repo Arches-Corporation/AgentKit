@@ -1,6 +1,6 @@
 # AgentKit
 
-Shared agentic guardrails for Arches repos. One versioned package instead of copy-pasted hook scripts: vendor-neutral core checks, thin per-tool adapters (Claude Code today).
+The shared agentic layer for Arches repos, one versioned package instead of copy-paste: **guardrails** (enforcement — vendor-neutral core, per-tool adapters) and **skills** (agent playbooks — templated, synced, drift-checked). Both come in three tiers: built-in/shared, project pack, repo-local.
 
 Extracted from EKB's battle-tested `.claude/hooks/` (spec `docs/specs/features/EKB-2256/` in EKB). Rationale: `EKB/docs/architecture/vendor-lock-in-position.md` — rules stay markdown-portable, enforcement becomes a shared package.
 
@@ -10,6 +10,7 @@ Extracted from EKB's battle-tested `.claude/hooks/` (spec `docs/specs/features/E
 nvm use
 npm i -D "github:Arches-Corporation/AgentKit"   # use the repo's own package manager; pnpm: add -D -w · yarn: add -D
 npx agentkit init --tool claude
+npx agentkit sync      # install managed skills (set skills.vars first — see docs/skills.md)
 npx agentkit doctor
 ```
 
@@ -31,6 +32,10 @@ Installs track latest `main`. The lockfile freezes the resolved commit for the t
 | `rules-reminder` | UserPromptSubmit | nothing — injects your configured rule summary once per session (silent until `text` is set) | [docs/guardrails/rules-reminder.md](docs/guardrails/rules-reminder.md) |
 
 Every block message tells the agent the compliant next step. Escape hatches are deliberate and auditable: one-shot marker files (`hard-stop`, `spec-first`) or an `APPROVED:` prefix (`privacy-block`, `scout-block`), each logged to `.agentkit/state/guardrail-log.jsonl`.
+
+## Skills
+
+Templated agent playbooks distributed by `agentkit sync` — shared tier (deep-review, spec-check, pr-review, security-audit, performance-optimization, db-migration, jira-ticket, sentry-investigator) + pack tier (ekb: route, design-check, attach-pr-recording, e2e-testing). Repo supplies `skills.vars`; unresolved placeholders fail the sync; local edits to managed skills fail `doctor`. Full model: [docs/skills.md](docs/skills.md).
 
 ## Configuration
 

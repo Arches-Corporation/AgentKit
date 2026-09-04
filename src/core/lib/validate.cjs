@@ -1,6 +1,35 @@
 'use strict';
 
-const TOP_LEVEL_KEYS = new Set(['$schema', 'stateDir', 'project', 'localGuardrailsDir', 'guardrails']);
+const TOP_LEVEL_KEYS = new Set(['$schema', 'stateDir', 'project', 'localGuardrailsDir', 'guardrails', 'skills']);
+
+function validateSkillsSection(skillsCfg, knownSkillNames, errors) {
+  if (!skillsCfg || typeof skillsCfg !== 'object' || Array.isArray(skillsCfg)) {
+    errors.push('skills: must be an object');
+    return;
+  }
+  for (const key of Object.keys(skillsCfg)) {
+    if (!['vars', 'exclude'].includes(key)) errors.push(`skills.${key}: unknown key (known: vars, exclude)`);
+  }
+  if (skillsCfg.vars !== undefined) {
+    if (!skillsCfg.vars || typeof skillsCfg.vars !== 'object' || Array.isArray(skillsCfg.vars)) {
+      errors.push('skills.vars: must be an object of string values');
+    } else {
+      for (const [k, v] of Object.entries(skillsCfg.vars)) {
+        if (typeof v !== 'string') errors.push(`skills.vars.${k}: must be a string`);
+      }
+    }
+  }
+  if (skillsCfg.exclude !== undefined) {
+    if (!Array.isArray(skillsCfg.exclude)) {
+      errors.push('skills.exclude: must be an array of skill names');
+    } else if (knownSkillNames) {
+      for (const name of skillsCfg.exclude) {
+        if (typeof name !== 'string') errors.push('skills.exclude: entries must be strings');
+        else if (!knownSkillNames.has(name)) errors.push(`skills.exclude: no such skill "${name}"`);
+      }
+    }
+  }
+}
 
 const TYPES = {
   string(value) {
@@ -107,6 +136,10 @@ function validateConfig(config, resolved) {
   }
   if (config.project !== undefined && typeof config.project !== 'string') {
     errors.push('project: must be a string');
+  }
+
+  if (config.skills !== undefined) {
+    validateSkillsSection(config.skills, resolved.skillNames || null, errors);
   }
 
   const guardrailsCfg = config.guardrails;
