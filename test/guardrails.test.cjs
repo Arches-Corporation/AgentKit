@@ -113,8 +113,12 @@ test('privacy-block: APPROVED prefix allows', () => {
   assert.strictEqual(privacyBlock.check(pathEvent('APPROVED:/repo/.env'), makeCtx()), null);
 });
 
-test('privacy-block: cat .env in command blocked', () => {
-  const r = privacyBlock.check(bashEvent('cat .env'), makeCtx());
+test('privacy-block: cat .env in command blocked when the file exists', () => {
+  const ctx = makeCtx();
+  fs.writeFileSync(path.join(ctx.repoRoot, '.env'), 'SECRET=1');
+  const ev = bashEvent('cat .env');
+  ev.cwd = ctx.repoRoot;
+  const r = privacyBlock.check(ev, ctx);
   assert.ok(r && r.block);
 });
 
@@ -165,6 +169,48 @@ test('scout-block: APPROVED prefix allows', () => {
     scoutBlock.check(pathEvent('APPROVED:' + path.join(ctx.repoRoot, 'node_modules/react/index.js')), ctx),
     null
   );
+});
+
+test('privacy-block: heredoc token like matrix.env does not block (real FP regression)', () => {
+  const ctx = makeCtx();
+  const cmd = `cd ${ctx.repoRoot} && python3 - <<'PYEOF'\nkey = "EKB_PLAN_ROLE_ARN_" + env  # uses matrix.env expression\nprint('\${{ matrix.env }}')\nPYEOF`;
+  assert.strictEqual(privacyBlock.check(bashEvent(cmd), ctx), null);
+});
+
+test('privacy-block: command token blocks only when file exists', () => {
+  const ctx = makeCtx();
+  const ev = bashEvent('cat .env');
+  ev.cwd = ctx.repoRoot;
+  assert.strictEqual(privacyBlock.check(ev, ctx), null);
+  fs.writeFileSync(path.join(ctx.repoRoot, '.env'), 'SECRET=1');
+  const r = privacyBlock.check(ev, ctx);
+  assert.ok(r && /secrets/.test(r.block));
+});
+
+test('privacy-block: tool path stays strict even when file does not exist (Write new .env)', () => {
+  const ctx = makeCtx();
+  const r = privacyBlock.check(pathEvent(path.join(ctx.repoRoot, 'nonexistent', '.env')), ctx);
+  assert.ok(r && r.block);
+});
+
+test('scout-block: bare prose words in heredocs/commands do not block (real FP regression)', () => {
+  const ctx = makeCtx();
+  const heredoc = `python3 - <<'EOF'\nfor dist in ['a']:\n    print('vendor', 'storage')\nEOF`;
+  assert.strictEqual(scoutBlock.check(bashEvent(heredoc), ctx), null);
+  assert.strictEqual(scoutBlock.check(bashEvent('echo vendor storage dist'), ctx), null);
+});
+
+test('scout-block: bare word still blocks when the ignored dir exists', () => {
+  const ctx = makeCtx();
+  fs.mkdirSync(path.join(ctx.repoRoot, 'vendor'));
+  const r = scoutBlock.check(bashEvent('grep -r foo vendor'), ctx);
+  assert.ok(r && /vendor/.test(r.block));
+});
+
+test('scout-block: slashed command target still blocks without existence', () => {
+  const ctx = makeCtx();
+  const r = scoutBlock.check(bashEvent('grep -r foo node_modules/react'), ctx);
+  assert.ok(r && /node_modules/.test(r.block));
 });
 
 test('scout-block: custom ignore file respected', () => {

@@ -39,3 +39,4 @@ Per-call, transcript-visible.
 
 - Fail-open: an internal error allows (availability over strictness for a context-hygiene rule).
 - Paths outside the repo root are not judged.
+- Command scanning: heredoc bodies are stripped (data, not file args), and a BARE word (prose/code words that happen to match an ignored dir name) only counts when it exists as a directory at the repo root — slashed tokens stay strict.

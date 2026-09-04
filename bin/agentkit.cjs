@@ -8,6 +8,7 @@ const { CONFIG_FILENAME, findRepoRoot, loadConfig } = require('../src/core/lib/c
 const { DEFAULT_DIR, loadAll } = require('../src/core/lib/local.cjs');
 const { packName, packExists, loadPack, listPacks } = require('../src/core/lib/projects.cjs');
 const { validateConfig, checkClaudeWiring } = require('../src/core/lib/validate.cjs');
+const { checkRemote } = require('../src/core/lib/remote.cjs');
 const skillsLib = require('../src/core/lib/skills.cjs');
 const { hooksFragment } = require('../src/adapters/claude/settings-fragment.cjs');
 
@@ -17,7 +18,7 @@ function usage() {
     'Commands:\n' +
     '  init --tool claude|cursor [--project <pack>]   Wire guardrails + write config skeleton\n' +
     '  sync [--check]       Render + install managed skills (shared + pack); --check = dry-run for CI\n' +
-    '  doctor               Strict check: node, config, pack, wiring drift, skill drift\n' +
+    '  doctor [--check-remote]  Strict check: node, config, pack, wiring + skill drift; flag also compares installed vs latest kit tag\n' +
     '  list                 List guardrails and skills: built-in, project pack, local\n' +
     '  hook <name>          Run one guardrail as a Claude hook (stdin JSON)\n'
   );
@@ -220,7 +221,7 @@ function cmdSync(args) {
   process.stdout.write(`synced ${rendered.length} skills (${changes.length} changed) — manifest: ${skillsLib.MANIFEST_REL}\n`);
 }
 
-function cmdDoctor() {
+function cmdDoctor(args = []) {
   let ok = true;
   const fail = (msg) => { ok = false; process.stdout.write(`FAIL ${msg}\n`); };
   const warn = (msg) => process.stdout.write(`warn ${msg}\n`);
@@ -336,6 +337,20 @@ function cmdDoctor() {
     }
   }
 
+  if (args.includes('--check-remote')) {
+    let pkg = {};
+    try { pkg = require('../package.json'); } catch { /* self */ }
+    const repoUrl = pkg.repository && pkg.repository.url;
+    if (!repoUrl) {
+      warn('--check-remote: no repository.url in the installed package');
+    } else {
+      const r = checkRemote(repoUrl, pkg.version);
+      if (r.status === 'behind') warn(`newer kit v${r.latest} available (installed ${r.installed}) — re-run the install command to refresh`);
+      else if (r.status === 'current') good(`kit is current (v${r.installed} = latest tag)`);
+      else warn(`remote check failed: ${r.message}`);
+    }
+  }
+
   const cursorHooksPath = path.join(root, '.cursor', 'hooks.json');
   if (fs.existsSync(cursorHooksPath)) {
     try {
@@ -381,7 +396,7 @@ function main() {
   switch (cmd) {
     case 'init': return cmdInit(args);
     case 'sync': return cmdSync(args);
-    case 'doctor': return cmdDoctor();
+    case 'doctor': return cmdDoctor(args);
     case 'list': return cmdList();
     case 'hook': {
       process.argv = [process.argv[0], process.argv[1], args[0]];

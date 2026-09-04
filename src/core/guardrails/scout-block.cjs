@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { hasApproval, stripApproval, commandTargets } = require('../lib/text.cjs');
+const { hasApproval, stripApproval, stripHeredocs, commandTargets } = require('../lib/text.cjs');
 
 const NAME = 'scout-block';
 
@@ -37,8 +37,23 @@ function check(event, ctx) {
   const repoRoot = ctx.repoRoot;
   const dirs = ignoredDirs(repoRoot, opts);
 
+  // Tool-call paths: strict. Command tokens: heredoc bodies stripped (data),
+  // and a BARE word (no slash, no dot-prefix — e.g. prose "vendor", a python
+  // kwarg "storage") only counts if it exists as a directory at the repo root.
+  // Slashed tokens keep strict handling.
   const targets = event.paths.slice();
-  if (event.command) targets.push(...commandTargets(event.command));
+  if (event.command) {
+    for (const t of commandTargets(stripHeredocs(event.command))) {
+      const clean = stripApproval(t);
+      const bareWord = /^\w+$/.test(clean);
+      if (bareWord) {
+        let isDir = false;
+        try { isDir = fs.statSync(path.join(repoRoot, clean)).isDirectory(); } catch { isDir = false; }
+        if (!isDir) continue;
+      }
+      targets.push(t);
+    }
+  }
 
   for (const raw of targets) {
     if (hasApproval(raw)) continue;
