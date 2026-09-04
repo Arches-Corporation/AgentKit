@@ -40,4 +40,6 @@ Overriding `sensitive` **replaces** the default list — copy it from `agentkit.
 ## Behavior notes
 
 - Fail-closed.
-- Bash commands are scanned for secret-shaped tokens (e.g. `cat .env`, `less server.pem`), not just tool path arguments.
+- Two strictness tiers:
+  - **Tool paths** (`file_path` on Read/Edit/Write): strict — block even if the file doesn't exist yet (a Write creating a new `.env` must be caught).
+  - **Bash command tokens**: heredoc bodies are stripped (always data), and a secret-shaped token only blocks if the file actually exists near `cwd`/repo root — prose or expressions like `matrix.env` never false-block, while `cat .env` on a real file still does.

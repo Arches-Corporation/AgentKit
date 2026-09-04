@@ -41,7 +41,7 @@ Templated agent playbooks distributed by `agentkit sync` — shared tier (deep-r
 
 `agentkit.config.json` at the consuming repo root. Full reference: [agentkit.config.example.json](agentkit.config.example.json) (shown with EKB's values); JSON Schema for editor autocomplete: [agentkit.config.schema.json](agentkit.config.schema.json) (`init` writes the `$schema` pointer). Per guardrail: `enabled` plus options documented in its cookbook page. Defaults are sane for a generic repo; `spec-first` is the one you almost always tune (`ticketPattern`, `codePathPatterns`, `specDirTemplate`).
 
-`agentkit doctor` validates strictly: unknown keys, wrong option types, and invalid regexes **fail**; so does wiring drift (an enabled guardrail missing from `.claude/settings.json`, a stale entry, or a wrong event/matcher).
+`agentkit doctor` validates strictly (`--check-remote` additionally compares the installed version against the latest kit tag — catches silently stale unpinned installs): unknown keys, wrong option types, and invalid regexes **fail**; so does wiring drift (an enabled guardrail missing from `.claude/settings.json`, a stale entry, or a wrong event/matcher).
 
 ## CLI
 
