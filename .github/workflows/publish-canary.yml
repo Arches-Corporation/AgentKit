@@ -2,7 +2,7 @@
 # GITHUB_TOKEN can publish an npm package under the org (org package-creation
 # setting). Publishes the CURRENT version under the org-matching scope
 # @arches-corporation (GitHub Packages requires scope == owner org; the
-# in-repo name @arches/agentkit cannot publish there). Branch-only workflow —
+# in-repo name @arches-corporation/agentkit cannot publish there). Branch-only workflow —
 # not part of the release pipeline; folded into the real registry PR if the
 # canary succeeds.
 name: Publish Canary (GitHub Packages)

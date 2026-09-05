@@ -12,7 +12,7 @@ const { validateConfig, checkClaudeWiring } = require('../src/core/lib/validate.
 const { checkRemote } = require('../src/core/lib/remote.cjs');
 const { createMarkers } = require('../src/core/lib/markers.cjs');
 const { aggregate, formatStats } = require('../src/core/lib/stats.cjs');
-const { removeAssets, unwireClaude, unwireCursor } = require('../src/core/lib/uninstall.cjs');
+const { removeAssets, unwireClaude, unwireCursor, unwireLegacyClaude, unwireLegacyCursor } = require('../src/core/lib/uninstall.cjs');
 const skillsLib = require('../src/core/lib/skills.cjs');
 const { hooksFragment } = require('../src/adapters/claude/settings-fragment.cjs');
 
@@ -38,7 +38,7 @@ function configSkeleton(project) {
     guardrails[g.name] = Object.assign({ enabled: true }, g.defaults);
   }
   const skeleton = {
-    $schema: './node_modules/@arches/agentkit/agentkit.config.schema.json',
+    $schema: './node_modules/@arches-corporation/agentkit/agentkit.config.schema.json',
     stateDir: '.agentkit/state',
     guardrails,
   };
@@ -46,13 +46,15 @@ function configSkeleton(project) {
   return skeleton;
 }
 
-const CURSOR_RUNNER = 'node "$WORKSPACE_ROOT/node_modules/@arches/agentkit/src/adapters/cursor/run.cjs"';
+const CURSOR_RUNNER = 'node "$WORKSPACE_ROOT/node_modules/@arches-corporation/agentkit/src/adapters/cursor/run.cjs"';
 const CURSOR_EVENTS = ['beforeShellExecution', 'beforeMCPExecution', 'beforeReadFile', 'beforeSubmitPrompt'];
 
 function wireCursor(root) {
   const hooksPath = path.join(root, '.cursor', 'hooks.json');
   let cfg = { version: 1, hooks: {} };
   try { cfg = JSON.parse(fs.readFileSync(hooksPath, 'utf8')); } catch { /* fresh file */ }
+  const legacy = unwireLegacyCursor(cfg);
+  if (legacy.removed) process.stdout.write(`migrated: removed ${legacy.removed} stale cursor hook(s) wired to the old @arches/agentkit package name\n`);
   cfg.hooks = cfg.hooks || {};
   for (const event of CURSOR_EVENTS) {
     const cmd = `${CURSOR_RUNNER} ${event}`;
@@ -143,6 +145,8 @@ function cmdInit(args) {
   const settingsPath = path.join(root, '.claude', 'settings.json');
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch { settings = {}; }
+  const legacy = unwireLegacyClaude(settings);
+  if (legacy.removed) process.stdout.write(`migrated: removed ${legacy.removed} stale hook(s) wired to the old @arches/agentkit package name\n`);
   settings.hooks = settings.hooks || {};
 
   const fragment = hooksFragment(extras);
@@ -314,7 +318,7 @@ function runDoctor(args = []) {
       fail(`.claude/settings.json is not valid JSON: ${err.message}`);
     }
     if (settings) {
-      if (JSON.stringify(settings).includes('@arches/agentkit')) {
+      if (JSON.stringify(settings).includes('@arches-corporation/agentkit')) {
         const wiring = checkClaudeWiring(settings, cfg, resolved);
         for (const e of wiring.errors) fail(`.claude/settings.json: ${e}`);
         if (!wiring.errors.length) good('.claude/settings.json wiring matches enabled guardrails (events + matchers)');
@@ -376,7 +380,7 @@ function runDoctor(args = []) {
       const cursorCfg = JSON.parse(fs.readFileSync(cursorHooksPath, 'utf8'));
       const missing = CURSOR_EVENTS.filter((event) => {
         const entries = (cursorCfg.hooks && cursorCfg.hooks[event]) || [];
-        return !entries.some((h) => h && typeof h.command === 'string' && h.command.includes('@arches/agentkit/src/adapters/cursor/run.cjs'));
+        return !entries.some((h) => h && typeof h.command === 'string' && h.command.includes('@arches-corporation/agentkit/src/adapters/cursor/run.cjs'));
       });
       if (missing.length) fail(`.cursor/hooks.json missing agentkit wiring for: ${missing.join(', ')} (run: agentkit init --tool cursor)`);
       else good('.cursor/hooks.json wires all agentkit events');
@@ -575,7 +579,7 @@ function cmdNew(args) {
   const root = findRepoRoot(process.cwd());
   let pkgName = null;
   try { pkgName = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).name; } catch { /* no package.json */ }
-  if (pkgName !== '@arches/agentkit') {
+  if (pkgName !== '@arches-corporation/agentkit') {
     process.stderr.write('agentkit new: run inside the AgentKit repo — consumers prototype guardrails in .agentkit/guardrails/ (docs/local-guardrails.md)\n');
     process.exit(1);
   }
@@ -662,7 +666,7 @@ function cmdUninstall(args) {
     process.stdout.write(`kept ${CONFIG_FILENAME} and .agentkit/guardrails/ (repo-owned; --purge removes them)\n`);
   }
 
-  process.stdout.write('now run: npm uninstall @arches/agentkit   (pnpm remove -w @arches/agentkit · yarn remove @arches/agentkit)\n');
+  process.stdout.write('now run: npm uninstall @arches-corporation/agentkit   (pnpm remove -w @arches-corporation/agentkit · yarn remove @arches-corporation/agentkit)\n');
 }
 
 function main() {
