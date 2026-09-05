@@ -1,0 +1,39 @@
+# Publishes the released version to GitHub Packages (npm.pkg.github.com).
+# Runs on every published GitHub Release (both release.yml paths — manual bump
+# and auto-bump — end in `gh release create`). Checks out the release tag so
+# package.json carries the tagged version. Consumers install from the registry:
+# see README + docs/onboarding.md for the .npmrc + token setup.
+name: publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://npm.pkg.github.com
+          scope: "@arches-corporation"
+
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify from registry
+        run: npm view @arches-corporation/agentkit@$(node -p "require('./package.json').version") version --registry=https://npm.pkg.github.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -134,7 +134,7 @@ test('stats: CLI renders log, --json parses, missing log ok', () => {
 function tmpKitRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-fakekit-'));
   fs.mkdirSync(path.join(dir, '.git'));
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@arches/agentkit', version: '0.0.0' }));
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@arches-corporation/agentkit', version: '0.0.0' }));
   return dir;
 }
 
@@ -205,16 +205,16 @@ test('uninstall: assets, wiring, state removed; config and foreign hooks kept', 
 
   const after = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
   const cmds = JSON.stringify(after);
-  assert.ok(!cmds.includes('@arches/agentkit'), 'kit wiring still present');
+  assert.ok(!cmds.includes('@arches-corporation/agentkit'), 'kit wiring still present');
   assert.ok(cmds.includes('echo my-own-hook'), 'foreign hook lost');
   assert.strictEqual(after.env.KEEP, 'me');
 
   const cursor = JSON.parse(fs.readFileSync(path.join(repo, '.cursor/hooks.json'), 'utf8'));
-  assert.ok(!JSON.stringify(cursor).includes('@arches/agentkit'));
+  assert.ok(!JSON.stringify(cursor).includes('@arches-corporation/agentkit'));
 
   assert.ok(fs.existsSync(path.join(repo, 'agentkit.config.json')), 'config must survive default uninstall');
   assert.ok(fs.existsSync(path.join(repo, '.agentkit/guardrails')), 'local guardrails dir must survive');
-  assert.match(r.stdout, /npm uninstall @arches\/agentkit/);
+  assert.match(r.stdout, /npm uninstall @arches-corporation\/agentkit/);
 
   const again = runCli(['uninstall'], repo);
   assert.strictEqual(again.status, 0, 'uninstall must be idempotent');
@@ -230,11 +230,32 @@ test('uninstall --purge: config and .agentkit removed', () => {
   assert.ok(!fs.existsSync(path.join(repo, '.agentkit')));
 });
 
+test('init: migrates stale wiring from the old @arches/agentkit package name', () => {
+  const repo = tmpRepo(ekbConfig());
+  const settingsPath = path.join(repo, '.claude/settings.json');
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, JSON.stringify({
+    hooks: {
+      PreToolUse: [
+        { matcher: 'Bash', hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches/agentkit/src/adapters/claude/run.cjs" hard-stop' }] },
+        { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo keep-me' }] },
+      ],
+    },
+  }));
+  const r = runCli(['init', '--tool', 'claude'], repo);
+  assert.strictEqual(r.status, 0, r.stderr + r.stdout);
+  assert.match(r.stdout, /migrated: removed 1 stale hook/);
+  const after = fs.readFileSync(settingsPath, 'utf8');
+  assert.ok(!after.includes('@arches/agentkit/'), 'old-name wiring must be gone');
+  assert.ok(after.includes('@arches-corporation/agentkit/src/adapters/claude/run.cjs'), 'new wiring present');
+  assert.ok(after.includes('echo keep-me'), 'foreign hook preserved');
+});
+
 test('unwireClaude: pure helper strips only kit commands', () => {
   const settings = {
     hooks: {
       PreToolUse: [
-        { matcher: 'Bash', hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches/agentkit/src/adapters/claude/run.cjs" hard-stop' }] },
+        { matcher: 'Bash', hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches-corporation/agentkit/src/adapters/claude/run.cjs" hard-stop' }] },
         { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo mine' }] },
       ],
     },

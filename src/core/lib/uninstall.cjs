@@ -3,8 +3,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const CLAUDE_RUNNER_FRAGMENT = '@arches/agentkit/src/adapters/claude/run.cjs';
-const CURSOR_RUNNER_FRAGMENT = '@arches/agentkit/src/adapters/cursor/run.cjs';
+const CLAUDE_RUNNER_FRAGMENTS = [
+  '@arches-corporation/agentkit/src/adapters/claude/run.cjs',
+  '@arches/agentkit/src/adapters/claude/run.cjs',
+];
+const CURSOR_RUNNER_FRAGMENTS = [
+  '@arches-corporation/agentkit/src/adapters/cursor/run.cjs',
+  '@arches/agentkit/src/adapters/cursor/run.cjs',
+];
 
 function pruneEmptyDirs(root, target) {
   let dir = path.dirname(path.join(root, target));
@@ -33,10 +39,11 @@ function removeAssets(root, manifest) {
   return removed;
 }
 
-function unwireHooks(settings, runnerFragment) {
+function unwireHooks(settings, runnerFragments) {
   if (!settings || typeof settings !== 'object' || !settings.hooks || typeof settings.hooks !== 'object') {
     return { settings, removed: 0 };
   }
+  const isKitCommand = (cmd) => typeof cmd === 'string' && runnerFragments.some((f) => cmd.includes(f));
   let removed = 0;
   for (const [event, entries] of Object.entries(settings.hooks)) {
     if (!Array.isArray(entries)) continue;
@@ -44,12 +51,12 @@ function unwireHooks(settings, runnerFragment) {
     for (const entry of entries) {
       if (entry && Array.isArray(entry.hooks)) {
         const keptHooks = entry.hooks.filter((h) => {
-          const isKit = h && typeof h.command === 'string' && h.command.includes(runnerFragment);
+          const isKit = h && isKitCommand(h.command);
           if (isKit) removed += 1;
           return !isKit;
         });
         if (keptHooks.length) kept.push(Object.assign({}, entry, { hooks: keptHooks }));
-      } else if (entry && typeof entry.command === 'string' && entry.command.includes(runnerFragment)) {
+      } else if (entry && isKitCommand(entry.command)) {
         removed += 1;
       } else {
         kept.push(entry);
@@ -63,11 +70,19 @@ function unwireHooks(settings, runnerFragment) {
 }
 
 function unwireClaude(settings) {
-  return unwireHooks(settings, CLAUDE_RUNNER_FRAGMENT);
+  return unwireHooks(settings, CLAUDE_RUNNER_FRAGMENTS);
 }
 
 function unwireCursor(cfg) {
-  return unwireHooks(cfg, CURSOR_RUNNER_FRAGMENT);
+  return unwireHooks(cfg, CURSOR_RUNNER_FRAGMENTS);
 }
 
-module.exports = { removeAssets, unwireClaude, unwireCursor, pruneEmptyDirs };
+function unwireLegacyClaude(settings) {
+  return unwireHooks(settings, ['@arches/agentkit/src/adapters/claude/run.cjs']);
+}
+
+function unwireLegacyCursor(cfg) {
+  return unwireHooks(cfg, ['@arches/agentkit/src/adapters/cursor/run.cjs']);
+}
+
+module.exports = { removeAssets, unwireClaude, unwireCursor, unwireLegacyClaude, unwireLegacyCursor, pruneEmptyDirs };
