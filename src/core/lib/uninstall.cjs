@@ -4,12 +4,12 @@ const fs = require('fs');
 const path = require('path');
 
 const CLAUDE_RUNNER_FRAGMENTS = [
-  '@arches-corporation/agentkit/src/adapters/claude/run.cjs',
   '@arches/agentkit/src/adapters/claude/run.cjs',
+  '@arches-corporation/agentkit/src/adapters/claude/run.cjs',
 ];
 const CURSOR_RUNNER_FRAGMENTS = [
-  '@arches-corporation/agentkit/src/adapters/cursor/run.cjs',
   '@arches/agentkit/src/adapters/cursor/run.cjs',
+  '@arches-corporation/agentkit/src/adapters/cursor/run.cjs',
 ];
 
 function pruneEmptyDirs(root, target) {
@@ -78,11 +78,11 @@ function unwireCursor(cfg) {
 }
 
 function unwireLegacyClaude(settings) {
-  return unwireHooks(settings, ['@arches/agentkit/src/adapters/claude/run.cjs']);
+  return unwireHooks(settings, ['@arches-corporation/agentkit/src/adapters/claude/run.cjs']);
 }
 
 function unwireLegacyCursor(cfg) {
-  return unwireHooks(cfg, ['@arches/agentkit/src/adapters/cursor/run.cjs']);
+  return unwireHooks(cfg, ['@arches-corporation/agentkit/src/adapters/cursor/run.cjs']);
 }
 
 module.exports = { removeAssets, unwireClaude, unwireCursor, unwireLegacyClaude, unwireLegacyCursor, pruneEmptyDirs };

@@ -1,6 +1,6 @@
 {
-  "name": "@arches-corporation/agentkit",
-  "version": "2.0.1",
+  "name": "@arches/agentkit",
+  "version": "2.1.0",
   "description": "Shared agentic guardrails for Arches repos — vendor-neutral core, per-tool adapters",
   "license": "UNLICENSED",
   "private": false,
@@ -18,8 +18,5 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Arches-Corporation/AgentKit.git"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   }
 }

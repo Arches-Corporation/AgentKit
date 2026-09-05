@@ -6,32 +6,19 @@ Extracted from EKB's battle-tested `.claude/hooks/` (spec `docs/specs/features/E
 
 ## Install (any repo)
 
-The kit is distributed as a private npm package on GitHub Packages: `@arches-corporation/agentkit`.
-
-1. Repo `.npmrc` (committed):
-
-```ini
-@arches-corporation:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-```
-
-2. Auth — one-time per environment:
-   - **Local dev:** create a classic PAT with `read:packages`, then `export NODE_AUTH_TOKEN=<pat>` in your shell profile.
-   - **CI (GitHub Actions):** pass `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}` as `env` on the install step. If the consuming repo's `GITHUB_TOKEN` gets 403, add that repo under the package's **Manage Actions access** (package settings) with read role.
-
-3. Install + wire:
+The repo is public — installs need no auth anywhere (dev laptops without SSH, CI, anything):
 
 ```bash
 nvm use
-npm i -D @arches-corporation/agentkit   # use the repo's own package manager; pnpm: add -D -w · yarn: add -D
+npm i -D "github:Arches-Corporation/AgentKit"   # use the repo's own package manager; pnpm: add -D -w · yarn: add -D
 npx agentkit init --tool claude
 npx agentkit sync      # install managed skills/commands/agents (set skills.vars first — see docs/skills.md)
 npx agentkit doctor
 ```
 
-Semver ranges work like any npm dep (`^2` recommended); `npm update` pulls the newest release. Every GitHub Release auto-publishes to the registry (`publish.yml`).
+Installs track latest `main`. The lockfile freezes the resolved commit for the team — to pull the newest kit, re-run the install command (it re-resolves and bumps the lock). Tags (`#vX.Y.Z`) exist for rollback if a release misbehaves.
 
-**Migrating from the old git install (`@arches/agentkit`, pre-2.0):** swap the dep (`npm rm @arches/agentkit && npm i -D @arches-corporation/agentkit`), add the `.npmrc`, re-run `npx agentkit init --tool claude` — init removes stale hooks wired to the old package name automatically. Update the `$schema` path in `agentkit.config.json` if you want editor autocomplete back.
+**If a repo adopted the interim v2.0.x registry package (`@arches-corporation/agentkit`):** `npm rm @arches-corporation/agentkit && npm i -D "github:Arches-Corporation/AgentKit"`, delete the `.npmrc` registry lines, re-run `npx agentkit init --tool claude` — init removes stale hooks wired to the interim name automatically.
 
 `init` writes an `agentkit.config.json` skeleton and wires the guardrails into `.claude/settings.json` (idempotent — safe to re-run). Adjust the config to your repo (ticket pattern, code paths, spec dir), commit both files. Full per-repo recipe incl. pure-Rails repos and SSH installs: [docs/onboarding.md](docs/onboarding.md).
 
@@ -74,7 +61,7 @@ agentkit list                 list guardrails and synced assets with their tiers
 agentkit hook <name>          run one guardrail (stdin JSON) — what settings.json calls
 ```
 
-`uninstall` is the clean-removal pre-step: npm runs no uninstall scripts, so run `npx agentkit uninstall` first, then `npm uninstall @arches-corporation/agentkit`. Default keeps `agentkit.config.json` + `.agentkit/guardrails/` (reinstall restores everything identically from them); `--purge` removes those too. The repo's markdown rulebook (`AGENTS.md` etc.) is repo-owned and never touched.
+`uninstall` is the clean-removal pre-step: npm runs no uninstall scripts, so run `npx agentkit uninstall` first, then `npm uninstall @arches/agentkit`. Default keeps `agentkit.config.json` + `.agentkit/guardrails/` (reinstall restores everything identically from them); `--purge` removes those too. The repo's markdown rulebook (`AGENTS.md` etc.) is repo-owned and never touched.
 
 ## Architecture
 
