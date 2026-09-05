@@ -2,7 +2,7 @@
 
 const registry = require('../../core/registry.cjs');
 
-const RUNNER = 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches-corporation/agentkit/src/adapters/claude/run.cjs"';
+const RUNNER = 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches/agentkit/src/adapters/claude/run.cjs"';
 
 function hooksFragment(extraGuardrails = []) {
   const byEvent = {};

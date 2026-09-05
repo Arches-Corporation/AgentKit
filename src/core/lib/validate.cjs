@@ -214,7 +214,7 @@ function extractWiredNames(settings, runnerPathFragment) {
 
 function checkClaudeWiring(settings, config, resolved) {
   const errors = [];
-  const wired = extractWiredNames(settings, '@arches-corporation/agentkit/src/adapters/claude/run.cjs');
+  const wired = extractWiredNames(settings, '@arches/agentkit/src/adapters/claude/run.cjs');
 
   const byName = new Map();
   for (const g of resolved.builtins) byName.set(g.name, g);

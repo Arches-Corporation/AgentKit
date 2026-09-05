@@ -96,7 +96,7 @@ function wiredSettings(names) {
       byEvent[event] = byEvent[event] || [];
       byEvent[event].push({
         matcher: g.matcher || undefined,
-        hooks: [{ type: 'command', command: `node "$CLAUDE_PROJECT_DIR/node_modules/@arches-corporation/agentkit/src/adapters/claude/run.cjs" ${g.name}` }],
+        hooks: [{ type: 'command', command: `node "$CLAUDE_PROJECT_DIR/node_modules/@arches/agentkit/src/adapters/claude/run.cjs" ${g.name}` }],
       });
     }
   }
@@ -126,7 +126,7 @@ test('wiring: stale entry for unknown guardrail fails', () => {
   const settings = wiredSettings(registry.list().map((g) => g.name));
   settings.hooks.PreToolUse.push({
     matcher: 'Bash',
-    hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches-corporation/agentkit/src/adapters/claude/run.cjs" removed-rule' }],
+    hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/node_modules/@arches/agentkit/src/adapters/claude/run.cjs" removed-rule' }],
   });
   const r = checkClaudeWiring(settings, {}, RESOLVED);
   assert.ok(r.errors.some((e) => /unknown guardrail "removed-rule"/.test(e)));

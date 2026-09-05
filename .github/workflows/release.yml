@@ -9,7 +9,6 @@ permissions:
   contents: write
   pull-requests: write
   statuses: write
-  packages: write
 
 jobs:
   version:
@@ -23,8 +22,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          registry-url: https://npm.pkg.github.com
-          scope: "@arches-corporation"
       - name: Self-gate — full test suite
         run: |
           git config --global user.email ci@arches && git config --global user.name ci
@@ -83,20 +80,3 @@ jobs:
           gh pr merge "$BRANCH" --merge --delete-branch
           gh release create "$NEW_VERSION" --verify-tag --generate-notes --title "$NEW_VERSION"
 
-      # Publish here, not via a release-event workflow: events created with the
-      # workflow GITHUB_TOKEN never trigger other workflows, so publish.yml would
-      # never fire for auto-created releases. Idempotent (skips published versions).
-      # The working tree holds the released version in both paths (manual bump =
-      # checkout; auto bump = npm version modified package.json above).
-      - name: Publish to GitHub Packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eu
-          V="$(node -p "require('./package.json').version")"
-          if npm view "@arches-corporation/agentkit@$V" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
-            echo "version $V already on the registry — skipping publish"
-          else
-            npm publish
-            npm view "@arches-corporation/agentkit@$V" version --registry=https://npm.pkg.github.com
-          fi
