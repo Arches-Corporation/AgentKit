@@ -107,6 +107,18 @@ test('rm pack: spec-in-commit ignores non-commit commands', () => {
   assert.strictEqual(r.status, 0);
 });
 
+test('rm pack: dev-rules-reminder full on SessionStart, terse on prompt', () => {
+  const repo = rmRepo();
+  const full = runHook('dev-rules-reminder', { hook_event_name: 'SessionStart', cwd: repo }, repo);
+  assert.strictEqual(full.status, 0);
+  assert.match(full.stdout, /core gates/);
+  assert.match(full.stdout, /4-layer boundaries/);
+  const terse = runHook('dev-rules-reminder', { hook_event_name: 'UserPromptSubmit', prompt: 'x', cwd: repo }, repo);
+  assert.strictEqual(terse.status, 0);
+  assert.match(terse.stdout, /\[gates\]/);
+  assert.doesNotMatch(terse.stdout, /4-layer boundaries/);
+});
+
 test('rm pack unavailable without project config', () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-nopack-'));
   fs.mkdirSync(path.join(repo, '.git'));
