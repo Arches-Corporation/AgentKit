@@ -47,10 +47,17 @@ Templated agent playbooks distributed by `agentkit sync` in three kinds — **sk
 
 ```
 agentkit init --tool claude   wire guardrails + write config skeleton
-agentkit doctor               check node version, config validity, wiring
-agentkit list                 list guardrails and their events
+agentkit sync [--check]       render + install managed assets (skills, commands, agents)
+agentkit doctor               check node version, config validity, wiring, asset drift
+agentkit verify               doctor + behavioral smoke of every enabled guardrail + sync state
+agentkit stats [--json]       aggregate the guardrail log — events, top block reasons, recent blocks
+agentkit new <kind> <name>    scaffold a kit asset (guardrail|skill|command|agent) — kit repo only
+agentkit uninstall [--purge]  remove synced assets, unwire hooks, delete state (then npm uninstall)
+agentkit list                 list guardrails and synced assets with their tiers
 agentkit hook <name>          run one guardrail (stdin JSON) — what settings.json calls
 ```
+
+`uninstall` is the clean-removal pre-step: npm runs no uninstall scripts, so run `npx agentkit uninstall` first, then `npm uninstall @arches/agentkit`. Default keeps `agentkit.config.json` + `.agentkit/guardrails/` (reinstall restores everything identically from them); `--purge` removes those too. The repo's markdown rulebook (`AGENTS.md` etc.) is repo-owned and never touched.
 
 ## Architecture
 

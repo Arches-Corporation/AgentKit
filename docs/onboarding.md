@@ -76,3 +76,19 @@ Gitignore `.agentkit/state/` only — never the whole `.agentkit/` dir, or local
 - Existing `.claude/settings.json` is **merged**, never overwritten — repo-local hooks survive. `init` is idempotent.
 - Upgrade = bump the tag: `npm i -D "github:Arches-Corporation/AgentKit#v1.1.0"`.
 - Repo-only rules go in `.agentkit/guardrails/<name>.cjs` — see [local-guardrails.md](local-guardrails.md); re-run `init` to wire.
+
+## Removing the kit
+
+npm ≥7 runs no uninstall lifecycle scripts, so removal is a two-step:
+
+```bash
+npx agentkit uninstall        # removes synced assets, unwires .claude/settings.json + .cursor/hooks.json, deletes manifest + state
+npm uninstall @arches/agentkit
+```
+
+What stays, deliberately:
+
+- `agentkit.config.json` + `.agentkit/guardrails/` — repo-owned; keeping them means a later `npm i` + `init` + `sync` restores the exact same state. `npx agentkit uninstall --purge` removes these too (and with them any local prototype guardrails).
+- The markdown rulebook (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursor/rules`, specs) — repo documentation, not kit-managed. The kit enforces rules; it doesn't own them.
+
+Non-kit hooks and settings in `.claude/settings.json` / `.cursor/hooks.json` are preserved — only entries pointing at the kit's runners are stripped.
