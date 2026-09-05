@@ -27,7 +27,7 @@ One repo = one pack. Packs shadow nothing: a pack guardrail named like a built-i
 | Pack | Project | Pack guardrails |
 |---|---|---|
 | `ekb` | EKB monorepo (Rails + React) | `dev-rules-reminder`, `pr-body-contract`, `precompact-capture`, `session-restore` |
-| `rm` | Referral-Management (Next.js + Supabase) | `spec-in-commit` (staged-spec model), `pr-body-contract` (configurable `required` sections) |
+| `rm` | Referral-Management (Next.js + Supabase) | `spec-in-commit` (staged-spec model), `pr-body-contract` (configurable `required` sections), `dev-rules-reminder` (full at SessionStart, terse per prompt) |
 
 ## Packs vs repo-local guardrails
 
