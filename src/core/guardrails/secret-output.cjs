@@ -6,6 +6,11 @@ const BUILT_IN = [
   { re: /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/, label: 'private key block' },
   { re: /\bAKIA[0-9A-Z]{16}\b/, label: 'AWS access key id' },
   { re: /\b(?:password|passwd|secret|token|api[_-]?key)\s*[:=]\s*\S{6,}/i, label: 'inline credential' },
+  { re: /\bgh[pousr]_[A-Za-z0-9]{30,}\b/, label: 'GitHub token' },
+  { re: /\bsk-[A-Za-z0-9_-]{20,}\b/, label: 'OpenAI-style secret key' },
+  { re: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/, label: 'Slack token' },
+  { re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/, label: 'JWT' },
+  { re: /\bsntryu_[0-9a-f]{40,}\b/i, label: 'Sentry auth token' },
 ];
 
 const DEFAULTS = {

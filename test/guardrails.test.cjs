@@ -146,6 +146,25 @@ test('secret-output: plain text allowed', () => {
   assert.strictEqual(secretOutput.check(promptEvent('please refactor the auth module'), makeCtx()), null);
 });
 
+test('secret-output: vendor token types blocked (GitHub, OpenAI, Slack, JWT, Sentry)', () => {
+  const cases = [
+    ['ghp_' + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6', /GitHub/],
+    ['sk-' + 'abcdefghij1234567890KLMNOP', /OpenAI/],
+    ['xoxb-1234567890-abcdefghijk', /Slack/],
+    ['eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c', /JWT/],
+    ['sntryu_' + 'a'.repeat(40), /Sentry/],
+  ];
+  for (const [token, label] of cases) {
+    const r = secretOutput.check(promptEvent(`use ${token} here`), makeCtx());
+    assert.ok(r && label.test(r.block), `${label} should block, got ${r && r.block}`);
+  }
+});
+
+test('hard-stop: newline-separated git commit segment still caught', () => {
+  const r = hardStop.check(bashEvent('echo prep\ngit commit -m sneaky'), makeCtx());
+  assert.ok(r && /HARD STOP/.test(r.block));
+});
+
 test('secret-output: extraPatterns from config blocked', () => {
   const ctx = makeCtx({ options: { extraPatterns: [{ pattern: 'INTERNAL-[0-9]{4}', label: 'internal token' }] } });
   const r = secretOutput.check(promptEvent('token INTERNAL-1234'), ctx);

@@ -8,7 +8,7 @@ const DEFAULTS = {
 
 function gitSegments(cmd) {
   return cmd
-    .split(/&&|\|\||;|\|/)
+    .split(/&&|\|\||;|\||\n/)
     .map((s) => s.trim())
     .filter((s) => /\bgit\s+(commit|push)\b/.test(s));
 }
