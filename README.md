@@ -74,7 +74,7 @@ Adapter status & event mapping: [docs/adapters.md](docs/adapters.md). Gemini has
 
 Core never touches stdin or `process.exit` — that's the adapter's job. Adding a vendor = one new adapter; guardrail logic is untouched.
 
-**Project-specific rules** also live in the kit, as packs: `src/projects/<project>/` (today: `ekb`). A repo opts in with `"project": "<name>"` in its config (`agentkit init --project <name>`). Resolution: built-in → pack → repo-local (`.agentkit/guardrails/`, the prototyping tier). Lifecycle: prototype local → stabilize into the pack → generalize into a built-in. See [docs/project-packs.md](docs/project-packs.md) and [docs/local-guardrails.md](docs/local-guardrails.md).
+**Project-specific rules** also live in the kit, as packs: `src/projects/<project>/` (today: `ekb`, `rm`). A repo opts in with `"project": "<name>"` in its config (`agentkit init --project <name>`). Resolution: built-in → pack → repo-local (`.agentkit/guardrails/`, the prototyping tier). Lifecycle: prototype local → stabilize into the pack → generalize into a built-in. See [docs/project-packs.md](docs/project-packs.md) and [docs/local-guardrails.md](docs/local-guardrails.md).
 
 ## Development
 

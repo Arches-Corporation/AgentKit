@@ -20,7 +20,14 @@ The runner then resolves guardrail names: **built-in → project pack → repo-l
 2. Add tests: `test/projects-<project>.test.cjs` (see `test/projects-ekb.test.cjs`).
 3. Release the kit; in the repo: refresh install + `npx agentkit init --tool claude --project <project>`.
 
-One repo = one pack. Packs shadow nothing: a pack guardrail named like a built-in is ignored (doctor warns).
+One repo = one pack. Packs shadow nothing: a pack guardrail named like a built-in is ignored (doctor warns). If a project needs a *different behavior* for something a built-in already covers, give the pack guardrail a distinct name and disable the built-in in the repo config. Example (`rm` pack): the built-in `spec-first` uses a ticket-in-branch + `docs/specs/features/{ticket}/` model; RM instead requires a spec file staged in the same commit, so the pack ships `spec-in-commit` and the repo sets `"spec-first": { "enabled": false }`.
+
+## Available packs
+
+| Pack | Project | Pack guardrails |
+|---|---|---|
+| `ekb` | EKB monorepo (Rails + React) | `dev-rules-reminder`, `pr-body-contract`, `precompact-capture`, `session-restore` |
+| `rm` | Referral-Management (Next.js + Supabase) | `spec-in-commit` (staged-spec model), `pr-body-contract` (configurable `required` sections) |
 
 ## Packs vs repo-local guardrails
 
