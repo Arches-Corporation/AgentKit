@@ -1,13 +1,18 @@
-# Publishes the released version to GitHub Packages (npm.pkg.github.com).
-# Runs on every published GitHub Release (both release.yml paths — manual bump
-# and auto-bump — end in `gh release create`). Checks out the release tag so
-# package.json carries the tagged version. Consumers install from the registry:
+# Manual fallback publisher. The normal path publishes inside release.yml
+# (releases created with the workflow GITHUB_TOKEN cannot trigger this workflow —
+# GitHub's anti-recursion rule). Use this dispatch to (re)publish a specific tag,
+# e.g. after a transient registry failure. Consumers install from the registry:
 # see README + docs/onboarding.md for the .npmrc + token setup.
 name: publish
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v2.0.0)
+        required: true
   release:
-    types: [published]
+    types: [published]   # still fires for manually-created releases
 
 permissions:
   contents: read
@@ -20,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
 
       - uses: actions/setup-node@v4
         with:
