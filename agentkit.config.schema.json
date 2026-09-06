@@ -23,25 +23,34 @@
       "default": ".agentkit/guardrails"
     },
     "skills": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Managed-asset distribution settings (agentkit sync); vars is the single template-variable pool for all asset kinds",
-      "properties": {
-        "vars": {
+      "oneOf": [
+        {
           "type": "object",
-          "description": "Template variables rendered into managed skills",
-          "additionalProperties": {
-            "type": "string"
+          "additionalProperties": false,
+          "description": "Managed-asset distribution settings (agentkit sync); vars is the single template-variable pool for all asset kinds",
+          "properties": {
+            "vars": {
+              "type": "object",
+              "description": "Template variables rendered into managed skills",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "description": "Kit skill names this repo opts out of",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
-        "exclude": {
-          "type": "array",
-          "description": "Kit skill names this repo opts out of",
-          "items": {
-            "type": "string"
-          }
+        {
+          "type": "boolean",
+          "const": false,
+          "description": "false disables all managed skills (guardrails-only style install)"
         }
-      }
+      ]
     },
     "guardrails": {
       "type": "object",
@@ -209,32 +218,50 @@
       }
     },
     "commands": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Managed command distribution settings (agentkit sync)",
-      "properties": {
-        "exclude": {
-          "type": "array",
-          "description": "Kit command names this repo opts out of",
-          "items": {
-            "type": "string"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Managed command distribution settings (agentkit sync)",
+          "properties": {
+            "exclude": {
+              "type": "array",
+              "description": "Kit command names this repo opts out of",
+              "items": {
+                "type": "string"
+              }
+            }
           }
+        },
+        {
+          "type": "boolean",
+          "const": false,
+          "description": "false disables all managed commands (guardrails-only style install)"
         }
-      }
+      ]
     },
     "agents": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Managed agent distribution settings (agentkit sync)",
-      "properties": {
-        "exclude": {
-          "type": "array",
-          "description": "Kit agent names this repo opts out of",
-          "items": {
-            "type": "string"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Managed agent distribution settings (agentkit sync)",
+          "properties": {
+            "exclude": {
+              "type": "array",
+              "description": "Kit agent names this repo opts out of",
+              "items": {
+                "type": "string"
+              }
+            }
           }
+        },
+        {
+          "type": "boolean",
+          "const": false,
+          "description": "false disables all managed agents (guardrails-only style install)"
         }
-      }
+      ]
     }
   },
   "definitions": {

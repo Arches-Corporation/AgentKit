@@ -14,6 +14,8 @@ The same engine syncs three kinds of markdown assets:
 
 Commands and agents install under `.claude/` — they are Claude Code surfaces (slash commands, subagents); Cursor and Gemini have no equivalent today. A `meta.json` `installPath` can retarget if that changes. Everything below (tiers, template vars, manifest, drift) applies to all three kinds; `skills.vars` is the single variable pool.
 
+A repo can disable a whole kind with a boolean: `"skills": false` (likewise `commands`/`agents`) — a guardrails-only install without enumerating every asset in `exclude`. Disabling a previously-synced kind removes its managed files on the next `sync`.
+
 ## Tiers
 
 | Tier | Where | Examples |

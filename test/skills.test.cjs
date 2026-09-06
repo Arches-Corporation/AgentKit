@@ -257,6 +257,34 @@ test('validate: unknown commands.exclude name fails doctor', () => {
   assert.match(r.stdout, /no such command "no-such-command"/);
 });
 
+test('kinds: boolean false disables a whole kind (guardrails-only style)', () => {
+  const cfg = ekbConfig({ skills: false, agents: false });
+  const assets = skillsLib.resolveAssets(cfg, 'ekb');
+  assert.strictEqual(assets.filter((a) => a.kind === 'skill').length, 0);
+  assert.strictEqual(assets.filter((a) => a.kind === 'agent').length, 0);
+  assert.ok(assets.filter((a) => a.kind === 'command').length >= 3, 'commands unaffected');
+});
+
+test('kinds: disabling a synced kind removes its files on next sync, doctor stays clean', () => {
+  const repo = tmpRepo(ekbConfig());
+  runCli(['sync'], repo);
+  assert.ok(fs.existsSync(path.join(repo, '.agents/skills/deep-review/SKILL.md')));
+  fs.writeFileSync(path.join(repo, 'agentkit.config.json'), JSON.stringify(ekbConfig({ skills: false })));
+  const out = runCli(['sync'], repo);
+  assert.strictEqual(out.status, 0, out.stderr + out.stdout);
+  assert.ok(!fs.existsSync(path.join(repo, '.agents/skills/deep-review/SKILL.md')), 'managed skill removed');
+  assert.ok(fs.existsSync(path.join(repo, '.claude/commands/pr.md')), 'commands kept');
+  const doctor = runCli(['doctor'], repo);
+  assert.strictEqual(doctor.status, 0, doctor.stdout);
+});
+
+test('validate: skills true rejected, false accepted', () => {
+  const bad = tmpRepo(ekbConfig({ skills: true }));
+  const r = runCli(['doctor'], bad);
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /skills: must be an object or false/);
+});
+
 test('validate: vars under commands rejected', () => {
   const repo = tmpRepo(ekbConfig({ commands: { vars: { a: 'b' } } }));
   const r = runCli(['doctor'], repo);

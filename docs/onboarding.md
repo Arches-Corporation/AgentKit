@@ -23,7 +23,8 @@ pnpm add -D -w "github:Arches-Corporation/AgentKit"
 yarn add -D "Arches-Corporation/AgentKit"
 
 npx agentkit init --tool claude
-npx agentkit sync    # managed skills — set skills.vars first (docs/skills.md); exclude what doesn't apply
+npx agentkit sync    # managed skills — set skills.vars first (docs/skills.md); exclude what doesn't apply,
+                     # or set "skills": false / "agents": false / "commands": false for guardrails-only
 npx agentkit doctor
 ```
 

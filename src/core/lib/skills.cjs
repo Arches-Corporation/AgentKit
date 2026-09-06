@@ -80,6 +80,7 @@ function resolveAssets(config, packNameValue) {
   const assets = [];
   for (const kind of Object.keys(KINDS)) {
     const spec = KINDS[kind];
+    if (config && config[spec.configKey] === false) continue;
     const kindCfg = (config && config[spec.configKey]) || {};
     const exclude = new Set(Array.isArray(kindCfg.exclude) ? kindCfg.exclude : []);
 
