@@ -5,7 +5,7 @@ Standard PR checklist before requesting human review.
 ## Steps
 
 1. **Open PRs via the unified command** — use `/pr` (it auto-detects the changed app(s) and runs their checks). Do NOT hand-roll `gh pr create` for app changes. It produces the required title + body.
-   - **App-scoped PR title/body** follow the app's `.github/pull_request_template.md` (title `feature/<TICKET-ID> Short description` or matching `fix/`,`chore/`,`refactor/` prefix; body = `# Description` with the Jira link, `## Type of change`, `# How Has This Been Tested?`, `# Checklist:`). Verify the body matches that template.
+   - **App-scoped PR title/body** follow the root `.github/pull_request_template.md` (GitHub serves it repo-wide) (title `feature/<TICKET-ID> Short description` or matching `fix/`,`chore/`,`refactor/` prefix; body = `# Description` with the Jira link, `## Type of change`, `# How Has This Been Tested?`, `# Checklist:`). Verify the body matches that template.
    - **Workspace-layer PR** (docs/tooling/agentic changes outside `apps/`) uses `type(TICKET-ID): description` (`feat`/`fix`/`chore`/`docs`/`refactor`/`test`) with an AC checklist.
 2. **Target branch** — `{{targetBranch}}`. Never a release branch directly.
 3. **Spec** — `{{specDirDisplay}}/` exists with proposal + design + tasks.
