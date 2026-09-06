@@ -12,7 +12,7 @@ const RUN = path.join(__dirname, '..', 'src', 'adapters', 'claude', 'run.cjs');
 function ekbRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-ekb-'));
   fs.mkdirSync(path.join(dir, '.git'));
-  fs.writeFileSync(path.join(dir, 'agentkit.config.json'), JSON.stringify({ project: 'ekb' }));
+  fs.writeFileSync(path.join(dir, 'agentkit.config.json'), JSON.stringify({ project: 'EKB' }));
   return dir;
 }
 
@@ -110,4 +110,16 @@ test('resolution precedence: built-in beats pack name, pack beats local', () => 
   assert.strictEqual(r.status, 2);
   assert.doesNotMatch(r.stderr, /local-shadow/);
   assert.match(r.stderr, /Type of change/);
+});
+
+test('legacy alias: project "ekb" still resolves to the EKB pack, doctor warns', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-alias-'));
+  fs.mkdirSync(path.join(repo, '.git'));
+  fs.writeFileSync(path.join(repo, 'agentkit.config.json'), JSON.stringify({ project: 'ekb' }));
+  const r = runHook('dev-rules-reminder', { hook_event_name: 'UserPromptSubmit', prompt: 'x', session_id: 'sa1', cwd: repo }, repo);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.match(r.stdout, /additionalContext/);
+  const CLI = path.join(__dirname, '..', 'bin', 'agentkit.cjs');
+  const doctor = require('node:child_process').spawnSync('node', [CLI, 'doctor'], { encoding: 'utf8', cwd: repo });
+  assert.match(doctor.stdout, /legacy alias — rename to "EKB"/);
 });

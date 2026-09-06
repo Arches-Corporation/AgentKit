@@ -12,7 +12,7 @@ const RUN = path.join(__dirname, '..', 'src', 'adapters', 'claude', 'run.cjs');
 function rmRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-rm-'));
   fs.mkdirSync(path.join(dir, '.git'));
-  fs.writeFileSync(path.join(dir, 'agentkit.config.json'), JSON.stringify({ project: 'rm' }));
+  fs.writeFileSync(path.join(dir, 'agentkit.config.json'), JSON.stringify({ project: 'Referral-Management' }));
   return dir;
 }
 
@@ -24,7 +24,7 @@ function gitRepo() {
   g(['config', 'user.email', 't@t.t']);
   g(['config', 'user.name', 't']);
   g(['config', 'commit.gpgsign', 'false']);
-  fs.writeFileSync(path.join(dir, 'agentkit.config.json'), JSON.stringify({ project: 'rm' }));
+  fs.writeFileSync(path.join(dir, 'agentkit.config.json'), JSON.stringify({ project: 'Referral-Management' }));
   return dir;
 }
 

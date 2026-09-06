@@ -153,7 +153,7 @@ test('doctor: pack config keys are known (regression — no unknown-guardrail no
   const r = spawnSync('node', [CLI, 'doctor'], { encoding: 'utf8', cwd: repo });
   assert.doesNotMatch(r.stdout, /unknown guardrail\(s\)/);
   assert.doesNotMatch(r.stdout, /no such guardrail/);
-  assert.match(r.stdout, /ok {3}pack guardrail dev-rules-reminder \(ekb\)/);
+  assert.match(r.stdout, /ok {3}pack guardrail dev-rules-reminder \(EKB\)/);
 });
 
 test('doctor: invalid regex in config fails with exit 1', () => {

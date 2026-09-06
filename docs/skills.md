@@ -21,7 +21,7 @@ A repo can disable a whole kind with a boolean: `"skills": false` (likewise `com
 | Tier | Where | Examples |
 |---|---|---|
 | Shared | kit `skills/<name>/SKILL.md` | skills: deep-review, spec-check, pr-review, security-audit, performance-optimization, db-migration, jira-ticket, sentry-investigator · agents: advisor |
-| Project pack | kit `src/projects/<pack>/skills/<name>/SKILL.md` | ekb skills: route, design-check, attach-pr-recording, e2e-testing · ekb commands: pr, ekb-up, verify-all · ekb agents: conductor, fe-agent, be-agent |
+| Project pack | kit `src/projects/<pack>/skills/<name>/SKILL.md` | EKB pack — skills: route, design-check, attach-pr-recording, e2e-testing · commands: pr, ekb-up, verify-all · agents: conductor, fe-agent, be-agent |
 | Repo-local | any skill dir in the repo not in the manifest | prototypes — sync never touches them |
 
 Promotion path: local → pack → shared, same as guardrails. A pack asset with the same name overrides a shared one of the same kind.

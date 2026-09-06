@@ -78,7 +78,7 @@ Adapter status & event mapping: [docs/adapters.md](docs/adapters.md). Gemini has
 
 Core never touches stdin or `process.exit` — that's the adapter's job. Adding a vendor = one new adapter; guardrail logic is untouched.
 
-**Project-specific rules** also live in the kit, as packs: `src/projects/<project>/` (today: `ekb`, `rm`). A repo opts in with `"project": "<name>"` in its config (`agentkit init --project <name>`). Resolution: built-in → pack → repo-local (`.agentkit/guardrails/`, the prototyping tier). Lifecycle: prototype local → stabilize into the pack → generalize into a built-in. See [docs/project-packs.md](docs/project-packs.md) and [docs/local-guardrails.md](docs/local-guardrails.md).
+**Project-specific rules** also live in the kit, as packs: `src/projects/<project>/` (today: `EKB`, `Referral-Management`). **Pack name == GitHub repo name, exactly.** A repo opts in with `"project": "<name>"` in its config (`agentkit init --project <name>`). Resolution: built-in → pack → repo-local (`.agentkit/guardrails/`, the prototyping tier). Lifecycle: prototype local → stabilize into the pack → generalize into a built-in. See [docs/project-packs.md](docs/project-packs.md) and [docs/local-guardrails.md](docs/local-guardrails.md).
 
 ## Development
 
@@ -86,5 +86,7 @@ Core never touches stdin or `process.exit` — that's the adapter's job. Adding 
 nvm use
 npm test        # node --test
 ```
+
+Contributing a guardrail, project pack, or shared asset: [docs/developing.md](docs/developing.md) — end-to-end walkthrough incl. tiers, contract rules, tests, and the auto-release flow. Adopting the kit in a repo: [docs/onboarding.md](docs/onboarding.md).
 
 `main` is protected — changes land via PR (CI must pass). On merge, the release workflow versions automatically: manual bump in package.json → tagged as-is; otherwise auto-bump from the merge commit message (`feat:` → minor, breaking (`!`/`BREAKING`) → major, else patch) and tagged `vX.Y.Z`.

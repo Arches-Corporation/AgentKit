@@ -6,13 +6,27 @@ const path = require('path');
 const PACKS_DIR = path.join(__dirname, '..', '..', 'projects');
 const FILE_RE = /^[a-z0-9][a-z0-9-]*\.cjs$/;
 
+// Convention: a pack is named EXACTLY like its GitHub repo (src/projects/EKB
+// for Arches-Corporation/EKB). Pre-2.3 short names stay as aliases so existing
+// configs keep working; doctor nudges to rename.
+const LEGACY_PACK_ALIASES = {
+  ekb: 'EKB',
+  rm: 'Referral-Management',
+};
+
 function isValid(mod) {
   return mod && typeof mod.name === 'string' && typeof mod.check === 'function' && Array.isArray(mod.events);
 }
 
 function packName(config) {
   const name = config && config.project;
-  return typeof name === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(name) ? name : null;
+  if (typeof name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(name)) return null;
+  return LEGACY_PACK_ALIASES[name] || name;
+}
+
+function packAliasUsed(config) {
+  const name = config && config.project;
+  return typeof name === 'string' && LEGACY_PACK_ALIASES[name] ? { alias: name, canonical: LEGACY_PACK_ALIASES[name] } : null;
 }
 
 function packExists(name) {
@@ -62,4 +76,4 @@ function listPacks() {
   }
 }
 
-module.exports = { packName, packExists, loadPack, getFromPack, listPacks };
+module.exports = { packName, packAliasUsed, packExists, loadPack, getFromPack, listPacks, LEGACY_PACK_ALIASES };
