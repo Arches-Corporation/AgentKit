@@ -75,6 +75,14 @@ agentkit.config.json
 
 Gitignore `.agentkit/state/` only — never the whole `.agentkit/` dir, or local guardrails silently stop being shared.
 
+**Check the repo doesn't blanket-ignore `.claude/`** — a bare `.claude/` gitignore line silently keeps the wiring out of git: it works on your machine and nobody else ever gets guardrails. Use granular entries instead:
+
+```gitignore
+.claude/*
+!.claude/settings.json
+.claude/settings.local.json
+```
+
 ## Gotchas
 
 - **Every engineer runs `npm install` once after clone** — wiring points into `node_modules/`. `agentkit doctor` flags a missing install.
