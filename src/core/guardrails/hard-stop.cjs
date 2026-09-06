@@ -6,11 +6,36 @@ const DEFAULTS = {
   approvalMarker: 'git-approved',
 };
 
+// A segment counts only when `git` is its LEADING command word (after env-var
+// prefixes) AND commit/push is the SUBCOMMAND — matching "git commit/push"
+// anywhere would false-block commands whose ARGUMENTS merely mention them
+// (a PR body quoting the rule, node -e with the words in a string literal,
+// echo of docs, `git log --grep commit`).
+function gitSubcommand(segment) {
+  const lead = segment.replace(/^(?:\w+=(?:"(?:\\.|[^"\\])*"|'[^']*'|\S+)\s+)+/, '');
+  const tokens = lead
+    .replace(/"((?:\\.|[^"\\])*)"/g, '$1')
+    .replace(/'([^']*)'/g, '$1')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens[0] !== 'git') return null;
+  for (let i = 1; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === '-C' || t === '-c') { i += 1; continue; }
+    if (t.startsWith('-')) continue;
+    return t;
+  }
+  return null;
+}
+
 function gitSegments(cmd) {
   return cmd
     .split(/&&|\|\||;|\||\n/)
     .map((s) => s.trim())
-    .filter((s) => /\bgit\s+(commit|push)\b/.test(s));
+    .filter((s) => {
+      const sub = gitSubcommand(s);
+      return sub === 'commit' || sub === 'push';
+    });
 }
 
 function check(event, ctx) {

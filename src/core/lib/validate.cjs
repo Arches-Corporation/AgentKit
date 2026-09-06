@@ -3,8 +3,13 @@
 const TOP_LEVEL_KEYS = new Set(['$schema', 'stateDir', 'project', 'localGuardrailsDir', 'guardrails', 'skills', 'commands', 'agents']);
 
 function validateAssetSection(sectionName, sectionCfg, allowedKeys, kindLabel, knownNames, errors) {
+  if (sectionCfg === false) return;
+  if (sectionCfg === true) {
+    errors.push(`${sectionName}: must be an object or false (true is meaningless — ${kindLabel}s are on by default)`);
+    return;
+  }
   if (!sectionCfg || typeof sectionCfg !== 'object' || Array.isArray(sectionCfg)) {
-    errors.push(`${sectionName}: must be an object`);
+    errors.push(`${sectionName}: must be an object or false (false disables all managed ${kindLabel}s)`);
     return;
   }
   for (const key of Object.keys(sectionCfg)) {

@@ -165,6 +165,29 @@ test('hard-stop: newline-separated git commit segment still caught', () => {
   assert.ok(r && /HARD STOP/.test(r.block));
 });
 
+test('hard-stop: commands merely MENTIONING git push/commit do not block (real FP regressions)', () => {
+  const cases = [
+    'gh pr create --title x --body "HARD STOP: never git commit or git push without approval"',
+    `node -e "console.log('git push blocks?', true)"`,
+    'echo "run git commit only after approval" > note.txt',
+    'grep -rn "git push" docs/',
+  ];
+  for (const cmd of cases) {
+    assert.strictEqual(hardStop.check(bashEvent(cmd), makeCtx()), null, `should allow: ${cmd}`);
+  }
+});
+
+test('hard-stop: commit/push only counts in subcommand position', () => {
+  assert.strictEqual(hardStop.check(bashEvent('git log --grep commit'), makeCtx()), null);
+  assert.strictEqual(hardStop.check(bashEvent('git checkout push-notifications'), makeCtx()), null);
+  const envPrefixed = hardStop.check(bashEvent('GIT_AUTHOR_NAME=x git push origin main'), makeCtx());
+  assert.ok(envPrefixed && envPrefixed.block, 'env-prefixed git push must block');
+  const dashC = hardStop.check(bashEvent('git -C /some/repo commit -m x'), makeCtx());
+  assert.ok(dashC && dashC.block, 'git -C <path> commit must block');
+  const quoted = hardStop.check(bashEvent('git "commit" -m x'), makeCtx());
+  assert.ok(quoted && quoted.block, 'quoted subcommand must not evade');
+});
+
 test('secret-output: extraPatterns from config blocked', () => {
   const ctx = makeCtx({ options: { extraPatterns: [{ pattern: 'INTERNAL-[0-9]{4}', label: 'internal token' }] } });
   const r = secretOutput.check(promptEvent('token INTERNAL-1234'), ctx);
