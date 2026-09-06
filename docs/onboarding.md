@@ -1,15 +1,13 @@
 # Onboarding a repo
 
-Five minutes per repo. Works for any shape — JS monorepo, pure Rails, anything.
+Five minutes per repo. Works for any shape — JS monorepo, pure Rails, anything. Node ≥ 20 via any version manager (`nvm use`, asdf `.tool-versions`, …).
 
-## Steps
+## 1. Install
 
 **Use the repo's own package manager** — check `packageManager` in package.json or the lockfile (`package-lock.json` = npm, `pnpm-lock.yaml` = pnpm, `yarn.lock` = yarn). Mixing managers corrupts the lockfile or fails on peer deps.
 
 ```bash
 cd <repo>
-
-nvm use   # repo's .nvmrc; if none: echo "20" > .nvmrc && nvm use
 
 # pure Rails / no package.json yet:
 npm init -y
@@ -21,14 +19,83 @@ npm i -D "github:Arches-Corporation/AgentKit"
 pnpm add -D -w "github:Arches-Corporation/AgentKit"
 # yarn:
 yarn add -D "Arches-Corporation/AgentKit"
-
-npx agentkit init --tool claude
-npx agentkit sync    # managed skills — set skills.vars first (docs/skills.md); exclude what doesn't apply,
-                     # or set "skills": false / "agents": false / "commands": false for guardrails-only
-npx agentkit doctor
 ```
 
 The repo is public — no auth needed for installs (dev or CI). Unpinned = latest `main` at install time; the lockfile freezes the resolved commit for everyone else. Append `#vX.Y.Z` only to roll back to a known release.
+
+## 2. Wire
+
+```bash
+npx agentkit init --tool claude
+```
+
+Writes a complete `agentkit.config.json` (every guardrail with its defaults, `$schema` pointer for editor autocomplete) and wires the guardrails into `.claude/settings.json`. Idempotent; existing settings are merged, never overwritten.
+
+## 3. Tune `agentkit.config.json`
+
+Hand-edit the generated file — only the deltas from defaults. Usually that's `spec-first`:
+
+| Repo style | Config |
+|---|---|
+| Ticket-keyed spec dirs (EKB: `docs/specs/features/EKB-1234/`) | `ticketPattern: "EKB-\\d+"`, `specDirTemplate: "docs/specs/features/{ticket}"` |
+| Spec tool with slug dirs (openspec: `openspec/changes/<slug>/`) | `ticketPattern: "AIS2?-\\d+"`, `requireSpecDir: false` — ticket-in-branch enforced, spec layout left to the spec tool |
+| No spec convention | `"spec-first": { "enabled": false }` |
+
+Set `codePathPatterns` to what counts as product code: Rails `["^(app|lib|db)/"]`, monorepo per app dir, JS `["^src/"]`. Disable what doesn't apply (e.g. `db-guard` in a pure frontend).
+
+Managed skills/commands/agents are **on by default — keep them on**: supply `skills.vars` (see [skills.md](skills.md)) and `exclude` only what genuinely doesn't fit, with a reason (wrong stack, tool not used). Guardrails-only (`"skills": false` etc.) is the explicit opt-out for repos that keep their own playbook system.
+
+## 4. Check the gitignore
+
+**A blanket `.claude/` gitignore line silently keeps the wiring out of git** — it works on your machine and nobody else ever gets guardrails. Use granular entries:
+
+```gitignore
+.claude/*
+!.claude/settings.json
+.claude/settings.local.json
+.agentkit/state/
+```
+
+Gitignore `.agentkit/state/` only — never the whole `.agentkit/` dir, or local guardrails silently stop being shared.
+
+## 5. Sync and prove
+
+```bash
+npx agentkit sync      # installs managed skills/commands/agents ("no assets" when kinds are disabled)
+npx agentkit doctor    # strict: config keys/types/regexes, wiring, asset drift
+npx agentkit verify    # behavioral proof — every enabled guardrail actually blocks its fixture
+```
+
+All green = done.
+
+## 6. Commit + PR
+
+```
+.nvmrc                       (if the repo uses nvm)
+package.json + lockfile
+agentkit.config.json
+.gitignore
+.claude/settings.json
+.agentkit/guardrails/        (local guardrails — committed source)
++ synced assets, if any (.agents/skills/, .claude/commands/, .claude/agents/, .agentkit/skills.manifest.json)
+```
+
+Open a PR to the repo's default working branch as usual.
+
+## For the rest of the team
+
+After the adoption PR merges, each engineer's entire setup is:
+
+```bash
+git pull
+npm install     # (repo's own manager) — guardrails run from node_modules; this activates them
+```
+
+Nothing else. `npx agentkit doctor` any time to check the install.
+
+## What to expect once it's live
+
+Guardrails intercept agent tool calls in Claude Code sessions. **Blocks are normal and self-explanatory** — every block message states the compliant next step (e.g. "get user approval, then `touch <marker>`"). Approval markers are one-shot files under the configured `stateDir`, consumed per use. Every decision is logged to `<stateDir>/guardrail-log.jsonl`; `npx agentkit stats` summarizes it. A false positive is worth a kit issue — the same fix then reaches every repo.
 
 ## Refreshing to the latest kit
 
@@ -38,7 +105,7 @@ npx agentkit init --tool claude   # only when the update added a guardrail (idem
 npx agentkit doctor
 ```
 
-Logic fixes inside existing guardrails need the install only. Commit the bumped lockfile so the team picks it up on next install.
+Logic fixes inside existing guardrails need the install only. Commit the bumped lockfile so the team picks it up on next install. Note: plain `npm install` also re-resolves unpinned git deps — use `npm ci` when you want exactly the lockfile.
 
 ## Migrating off the interim v2.0.x registry install (`@arches-corporation/agentkit`)
 
@@ -51,37 +118,13 @@ npx agentkit doctor
 
 Also delete the GitHub Packages lines from `.npmrc`.
 
-## Tune `agentkit.config.json`
-
-Only `spec-first` usually needs attention:
-
-| Repo style | Config |
-|---|---|
-| Ticket-keyed spec dirs (EKB: `docs/specs/features/EKB-1234/`) | `ticketPattern: "EKB-\\d+"`, `specDirTemplate: "docs/specs/features/{ticket}"` |
-| Spec tool with slug dirs (openspec: `openspec/changes/<slug>/`) | `ticketPattern: "AIS2?-\\d+"`, `requireSpecDir: false` — ticket-in-branch enforced, spec layout left to the spec tool |
-| No spec convention | `"spec-first": { "enabled": false }` |
-
-Set `codePathPatterns` to what counts as product code: Rails `["^(app|lib|db)/"]`, monorepo per app dir, JS `["^src/"]`.
-
-## Commit
-
-```
-.nvmrc
-package.json + package-lock.json
-agentkit.config.json
-.claude/settings.json
-.agentkit/guardrails/        (local guardrails — committed source)
-```
-
-Gitignore `.agentkit/state/` only — never the whole `.agentkit/` dir, or local guardrails silently stop being shared.
-
 ## Gotchas
 
-- **Every engineer runs `npm install` once after clone** — wiring points into `node_modules/`. `agentkit doctor` flags a missing install.
 - **Global gitignores** can silently exclude source dirs (a `lib/` rule is common). `git check-ignore -v <path>` if something won't stage.
 - Existing `.claude/settings.json` is **merged**, never overwritten — repo-local hooks survive. `init` is idempotent.
-- Upgrade = re-run the install command (re-resolves `main`); rollback = pin a tag (`npm i -D "github:Arches-Corporation/AgentKit#v2.1.0"`).
+- Rollback = pin a tag: `npm i -D "github:Arches-Corporation/AgentKit#v2.1.0"`.
 - Repo-only rules go in `.agentkit/guardrails/<name>.cjs` — see [local-guardrails.md](local-guardrails.md); re-run `init` to wire.
+- Leftovers from an old adoption trial (untracked `.claude/settings.json`, stale synced skills)? Delete them and start from step 1 — `init` also auto-migrates known legacy wiring.
 
 ## Removing the kit
 

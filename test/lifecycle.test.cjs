@@ -21,7 +21,7 @@ const EKB_VARS = {
 
 function ekbConfig() {
   return {
-    project: 'ekb',
+    project: 'EKB',
     guardrails: { 'spec-first': { ticketPattern: 'EKB-\\d+', specDirTemplate: 'docs/specs/features/{ticket}' } },
     skills: { vars: Object.assign({}, EKB_VARS) },
   };
@@ -163,8 +163,8 @@ test('new: skill/command/agent stubs, pack placement, duplicates refused', () =>
   const kit = tmpKitRepo();
   assert.strictEqual(runCli(['new', 'skill', 'my-skill'], kit).status, 0);
   assert.ok(fs.existsSync(path.join(kit, 'skills/my-skill/SKILL.md')));
-  assert.strictEqual(runCli(['new', 'command', 'my-cmd', '--pack', 'ekb'], kit).status, 0);
-  assert.ok(fs.existsSync(path.join(kit, 'src/projects/ekb/commands/my-cmd/COMMAND.md')));
+  assert.strictEqual(runCli(['new', 'command', 'my-cmd', '--pack', 'EKB'], kit).status, 0);
+  assert.ok(fs.existsSync(path.join(kit, 'src/projects/EKB/commands/my-cmd/COMMAND.md')));
   assert.strictEqual(runCli(['new', 'agent', 'my-agent'], kit).status, 0);
   assert.match(fs.readFileSync(path.join(kit, 'agents/my-agent/AGENT.md'), 'utf8'), /^---\nname: my-agent/);
   const dup = runCli(['new', 'skill', 'my-skill'], kit);

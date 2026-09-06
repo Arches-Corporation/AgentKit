@@ -7,7 +7,7 @@ const path = require('path');
 const registry = require('../src/core/registry.cjs');
 const { CONFIG_FILENAME, findRepoRoot, loadConfig, isEnabled, optionsFor, stateDir } = require('../src/core/lib/config.cjs');
 const { DEFAULT_DIR, loadAll } = require('../src/core/lib/local.cjs');
-const { packName, packExists, loadPack, listPacks } = require('../src/core/lib/projects.cjs');
+const { packName, packAliasUsed, packExists, loadPack, listPacks, LEGACY_PACK_ALIASES } = require('../src/core/lib/projects.cjs');
 const { validateConfig, checkClaudeWiring } = require('../src/core/lib/validate.cjs');
 const { checkRemote } = require('../src/core/lib/remote.cjs');
 const { createMarkers } = require('../src/core/lib/markers.cjs');
@@ -76,7 +76,8 @@ function cmdInit(args) {
   }
 
   const root = findRepoRoot(process.cwd());
-  const projectArg = args.includes('--project') ? args[args.indexOf('--project') + 1] : null;
+  let projectArg = args.includes('--project') ? args[args.indexOf('--project') + 1] : null;
+  if (projectArg && LEGACY_PACK_ALIASES[projectArg]) projectArg = LEGACY_PACK_ALIASES[projectArg];
   if (projectArg && !packExists(projectArg)) {
     process.stderr.write(`agentkit init: no project pack "${projectArg}" in AgentKit (available: ${listPacks().join(', ') || 'none'})\n`);
     process.exit(1);
@@ -269,6 +270,8 @@ function runDoctor(args = []) {
   if (cfg.project !== undefined && !project) {
     fail(`config "project" is not a valid pack name: ${JSON.stringify(cfg.project)}`);
   }
+  const aliased = packAliasUsed(cfg);
+  if (aliased) warn(`project "${aliased.alias}" is a legacy alias — rename to "${aliased.canonical}" (pack names now match the GitHub repo name)`);
   if (project && !packExists(project)) {
     fail(`project pack "${project}" not found in AgentKit (available: ${listPacks().join(', ') || 'none'})`);
   }

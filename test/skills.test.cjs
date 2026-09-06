@@ -20,7 +20,7 @@ const EKB_VARS = {
 
 function ekbConfig(extra = {}) {
   return Object.assign({
-    project: 'ekb',
+    project: 'EKB',
     guardrails: { 'spec-first': { ticketPattern: 'EKB-\\d+', specDirTemplate: 'docs/specs/features/{ticket}' } },
     skills: { vars: Object.assign({}, EKB_VARS) },
   }, extra);
@@ -38,12 +38,12 @@ function runCli(args, cwd) {
 }
 
 test('resolve: shared + ekb pack skills, sorted, exclude honored', () => {
-  const all = skillsLib.resolveSkills(ekbConfig(), 'ekb');
+  const all = skillsLib.resolveSkills(ekbConfig(), 'EKB');
   const names = all.map((s) => s.name);
   assert.ok(names.includes('deep-review'));
   assert.ok(names.includes('route'));
   assert.ok(names.includes('e2e-testing'));
-  const excluded = skillsLib.resolveSkills(ekbConfig({ skills: { vars: EKB_VARS, exclude: ['sentry-investigator'] } }), 'ekb');
+  const excluded = skillsLib.resolveSkills(ekbConfig({ skills: { vars: EKB_VARS, exclude: ['sentry-investigator'] } }), 'EKB');
   assert.ok(!excluded.map((s) => s.name).includes('sentry-investigator'));
 });
 
@@ -54,7 +54,7 @@ test('resolve: no pack -> shared only', () => {
 });
 
 test('meta: e2e-testing has custom installPath, others default', () => {
-  const skills = skillsLib.resolveSkills(ekbConfig(), 'ekb');
+  const skills = skillsLib.resolveSkills(ekbConfig(), 'EKB');
   const e2e = skills.find((s) => s.name === 'e2e-testing');
   assert.strictEqual(e2e.installPath, 'apps/web/.claude/skills/e2e-testing/SKILL.md');
   const dr = skills.find((s) => s.name === 'deep-review');
@@ -68,7 +68,7 @@ test('vars: derived specDirDisplay from spec-first config', () => {
 });
 
 test('render: ekb vars produce clean content with EKB values, no leftover placeholders', () => {
-  const { rendered, errors } = skillsLib.renderAll(ekbConfig(), 'ekb');
+  const { rendered, errors } = skillsLib.renderAll(ekbConfig(), 'EKB');
   assert.deepStrictEqual(errors, []);
   assert.ok(rendered.length >= 12);
   for (const r of rendered) {
@@ -85,21 +85,21 @@ test('render: ekb vars produce clean content with EKB values, no leftover placeh
 
 test('render: missing var without default fails with var name', () => {
   const cfg = { guardrails: {}, skills: { vars: {} } };
-  const { errors } = skillsLib.renderAll(cfg, 'ekb');
+  const { errors } = skillsLib.renderAll(cfg, 'EKB');
   assert.ok(errors.some((e) => /security-audit.*beDir/.test(e)), JSON.stringify(errors));
 });
 
 test('render: defaults from meta.json apply when var unset', () => {
   const cfg = ekbConfig();
   delete cfg.skills.vars.orgName;
-  const { rendered, errors } = skillsLib.renderAll(cfg, 'ekb');
+  const { rendered, errors } = skillsLib.renderAll(cfg, 'EKB');
   assert.deepStrictEqual(errors, []);
   const jira = rendered.find((r) => r.name === 'jira-ticket');
   assert.match(jira.content, /Arches workspace standard/);
 });
 
 test('cross-references intact after render', () => {
-  const { rendered } = skillsLib.renderAll(ekbConfig(), 'ekb');
+  const { rendered } = skillsLib.renderAll(ekbConfig(), 'EKB');
   const names = new Set(rendered.map((r) => r.name));
   const dr = rendered.find((r) => r.name === 'deep-review');
   assert.match(dr.content, /design-check|design-system/i);
@@ -169,7 +169,7 @@ test('doctor: unsynced repo warns, synced repo passes', () => {
 });
 
 test('kinds: ekb pack resolves commands and agents alongside skills', () => {
-  const assets = skillsLib.resolveAssets(ekbConfig(), 'ekb');
+  const assets = skillsLib.resolveAssets(ekbConfig(), 'EKB');
   const byKind = (k) => assets.filter((a) => a.kind === k).map((a) => a.name);
   for (const c of ['pr', 'ekb-up', 'verify-all']) assert.ok(byKind('command').includes(c), `command ${c}`);
   for (const a of ['advisor', 'conductor', 'fe-agent', 'be-agent']) assert.ok(byKind('agent').includes(a), `agent ${a}`);
@@ -181,14 +181,14 @@ test('kinds: ekb pack resolves commands and agents alongside skills', () => {
 });
 
 test('kinds: advisor renders org vars, defaults apply without them', () => {
-  const { rendered, errors } = skillsLib.renderAll(ekbConfig(), 'ekb');
+  const { rendered, errors } = skillsLib.renderAll(ekbConfig(), 'EKB');
   assert.deepStrictEqual(errors, []);
   const advisor = rendered.find((r) => r.kind === 'agent' && r.name === 'advisor');
   assert.match(advisor.content, /EKB decision advisor/);
   assert.match(advisor.content, /`AGENTS\.md` constraints/);
   const cfg = ekbConfig();
   delete cfg.skills.vars.orgName;
-  const fallback = skillsLib.renderAll(cfg, 'ekb').rendered.find((r) => r.kind === 'agent' && r.name === 'advisor');
+  const fallback = skillsLib.renderAll(cfg, 'EKB').rendered.find((r) => r.kind === 'agent' && r.name === 'advisor');
   assert.match(fallback.content, /Arches decision advisor/);
 });
 
@@ -200,7 +200,7 @@ test('kinds: no pack -> advisor only, no commands', () => {
 
 test('kinds: per-kind exclude, same name spaces independent', () => {
   const cfg = ekbConfig({ skills: { vars: EKB_VARS }, commands: { exclude: ['ekb-up'] }, agents: { exclude: ['conductor'] } });
-  const assets = skillsLib.resolveAssets(cfg, 'ekb');
+  const assets = skillsLib.resolveAssets(cfg, 'EKB');
   assert.ok(!assets.some((a) => a.kind === 'command' && a.name === 'ekb-up'));
   assert.ok(!assets.some((a) => a.kind === 'agent' && a.name === 'conductor'));
   assert.ok(assets.some((a) => a.kind === 'skill' && a.name === 'route'));
@@ -234,7 +234,7 @@ test('kinds: v1 manifest reads compatibly — skills matched, new kinds created'
   fs.writeFileSync(mPath, JSON.stringify(v1, null, 2));
   fs.rmSync(path.join(repo, '.claude/commands'), { recursive: true });
   fs.rmSync(path.join(repo, '.claude/agents'), { recursive: true });
-  const { rendered } = skillsLib.renderAll(ekbConfig(), 'ekb');
+  const { rendered } = skillsLib.renderAll(ekbConfig(), 'EKB');
   const actions = skillsLib.planSync(repo, rendered, skillsLib.readManifest(repo));
   assert.ok(!actions.some((a) => a.kind === 'skill' && a.type !== 'unchanged'), JSON.stringify(actions.filter((a) => a.kind === 'skill' && a.type !== 'unchanged')));
   assert.ok(actions.some((a) => a.kind === 'command' && a.type === 'create'));
@@ -259,7 +259,7 @@ test('validate: unknown commands.exclude name fails doctor', () => {
 
 test('kinds: boolean false disables a whole kind (guardrails-only style)', () => {
   const cfg = ekbConfig({ skills: false, agents: false });
-  const assets = skillsLib.resolveAssets(cfg, 'ekb');
+  const assets = skillsLib.resolveAssets(cfg, 'EKB');
   assert.strictEqual(assets.filter((a) => a.kind === 'skill').length, 0);
   assert.strictEqual(assets.filter((a) => a.kind === 'agent').length, 0);
   assert.ok(assets.filter((a) => a.kind === 'command').length >= 3, 'commands unaffected');
