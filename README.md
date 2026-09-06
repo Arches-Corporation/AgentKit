@@ -10,15 +10,15 @@ The repo is public — installs need no auth anywhere (dev laptops without SSH, 
 
 ```bash
 nvm use
-npm i -D "github:Arches-Corporation/AgentKit"   # use the repo's own package manager; pnpm: add -D -w · yarn: add -D
+npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"   # caret pins like any npm dep; pnpm: add -D -w · yarn: add -D
 npx agentkit init --tool claude
 npx agentkit sync      # install managed skills/commands/agents (set skills.vars first — see docs/skills.md)
 npx agentkit doctor
 ```
 
-Installs track latest `main`. The lockfile freezes the resolved commit for the team — to pull the newest kit, re-run the install command (it re-resolves and bumps the lock). Tags (`#vX.Y.Z`) exist for rollback if a release misbehaves.
+The `#semver:^X.Y.Z` range behaves like any npm caret: it resolves to the newest matching tag at install time, the lockfile freezes the exact commit for the team, `npm update @arches/agentkit` pulls newer minors/patches when you ask, and a new major never auto-installs. Exact pin (`#v2.3.1`) or floating `main` (no ref) are both still valid if you want them.
 
-**If a repo adopted the interim v2.0.x registry package (`@arches-corporation/agentkit`):** `npm rm @arches-corporation/agentkit && npm i -D "github:Arches-Corporation/AgentKit"`, delete the `.npmrc` registry lines, re-run `npx agentkit init --tool claude` — init removes stale hooks wired to the interim name automatically.
+**If a repo adopted the interim v2.0.x registry package (`@arches-corporation/agentkit`):** `npm rm @arches-corporation/agentkit && npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"`, delete the `.npmrc` registry lines, re-run `npx agentkit init --tool claude` — init removes stale hooks wired to the interim name automatically.
 
 `init` writes an `agentkit.config.json` skeleton and wires the guardrails into `.claude/settings.json` (idempotent — safe to re-run). Adjust the config to your repo (ticket pattern, code paths, spec dir), commit both files. Full per-repo recipe incl. pure-Rails repos and SSH installs: [docs/onboarding.md](docs/onboarding.md).
 

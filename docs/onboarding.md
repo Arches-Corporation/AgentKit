@@ -14,14 +14,14 @@ npm init -y
 # then set "private": true and strip noise fields
 
 # npm repo:
-npm i -D "github:Arches-Corporation/AgentKit"
+npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"
 # pnpm workspace (-w = workspace root):
-pnpm add -D -w "github:Arches-Corporation/AgentKit"
+pnpm add -D -w "github:Arches-Corporation/AgentKit#semver:^2.3.1"
 # yarn:
-yarn add -D "Arches-Corporation/AgentKit"
+yarn add -D "Arches-Corporation/AgentKit#semver:^2.3.1"
 ```
 
-The repo is public — no auth needed for installs (dev or CI). Unpinned = latest `main` at install time; the lockfile freezes the resolved commit for everyone else. Append `#vX.Y.Z` only to roll back to a known release.
+The repo is public — no auth needed for installs (dev or CI). `#semver:^X.Y.Z` behaves like any npm caret: newest matching tag at install, lockfile freezes the exact commit for the team, `npm update` pulls newer minors/patches on request, a new major never auto-installs. Use `#vX.Y.Z` for an exact pin, or no ref to float `main`.
 
 ## 2. Wire
 
@@ -100,18 +100,19 @@ Guardrails intercept agent tool calls in Claude Code sessions. **Blocks are norm
 ## Refreshing to the latest kit
 
 ```bash
-npm i -D "github:Arches-Corporation/AgentKit"   # repo's own manager — re-resolves main, bumps the lock
-npx agentkit init --tool claude   # only when the update added a guardrail (idempotent)
+npm update @arches/agentkit            # newest tag within the pinned caret range; bumps the lock
+# or widen the range for a new major: npm i -D "github:Arches-Corporation/AgentKit#semver:^3.0.0"
+npx agentkit init --tool claude        # only when the update added a guardrail (idempotent)
 npx agentkit doctor
 ```
 
-Logic fixes inside existing guardrails need the install only. Commit the bumped lockfile so the team picks it up on next install. Note: plain `npm install` also re-resolves unpinned git deps — use `npm ci` when you want exactly the lockfile.
+Logic fixes inside existing guardrails need the update only. Commit the bumped lockfile so the team picks it up on next install.
 
 ## Migrating off the interim v2.0.x registry install (`@arches-corporation/agentkit`)
 
 ```bash
 npm rm @arches-corporation/agentkit
-npm i -D "github:Arches-Corporation/AgentKit"
+npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"
 npx agentkit init --tool claude   # auto-removes hooks wired to the interim package name
 npx agentkit doctor
 ```
@@ -122,7 +123,7 @@ Also delete the GitHub Packages lines from `.npmrc`.
 
 - **Global gitignores** can silently exclude source dirs (a `lib/` rule is common). `git check-ignore -v <path>` if something won't stage.
 - Existing `.claude/settings.json` is **merged**, never overwritten — repo-local hooks survive. `init` is idempotent.
-- Rollback = pin a tag: `npm i -D "github:Arches-Corporation/AgentKit#v2.1.0"`.
+- Rollback = pin an exact tag: `npm i -D "github:Arches-Corporation/AgentKit#v2.1.0"`.
 - Repo-only rules go in `.agentkit/guardrails/<name>.cjs` — see [local-guardrails.md](local-guardrails.md); re-run `init` to wire.
 - Leftovers from an old adoption trial (untracked `.claude/settings.json`, stale synced skills)? Delete them and start from step 1 — `init` also auto-migrates known legacy wiring.
 
