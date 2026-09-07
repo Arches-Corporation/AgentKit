@@ -307,3 +307,15 @@ test('validate: non-string var fails doctor', () => {
   assert.strictEqual(r.status, 1);
   assert.match(r.stdout, /skills\.vars\.feDir: must be a string/);
 });
+
+test('rulebook descriptions: rendered (no {{vars}}), no frontmatter leak', () => {
+  const { rendered } = skillsLib.renderAll(ekbConfig(), 'EKB');
+  for (const r of rendered) {
+    assert.doesNotMatch(r.description || '', /\{\{[a-zA-Z]/, `${r.name} desc has unresolved var: ${r.description}`);
+    assert.doesNotMatch(r.description || '', /^name:\s/, `${r.name} desc leaked frontmatter: ${r.description}`);
+  }
+  const advisor = rendered.find((r) => r.kind === 'agent' && r.name === 'advisor');
+  assert.ok(advisor.description && /EKB/.test(advisor.description), 'advisor desc renders orgName');
+  const e2e = rendered.find((r) => r.name === 'e2e-testing');
+  assert.ok(e2e.description && !/^name:/.test(e2e.description), 'e2e-testing desc is prose, not frontmatter');
+});
