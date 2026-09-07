@@ -1,4 +1,5 @@
 {
+  "description": "Run the PR checklist and prepare a compliant PR title/body.",
   "vars": {
     "targetBranch": "develop",
     "checksLine": "the repo's typecheck + lint commands"

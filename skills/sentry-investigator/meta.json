@@ -1,4 +1,5 @@
 {
+  "description": "Investigate and fix a production error from Sentry.",
   "vars": {
     "sentryOrg": "arches-sq",
     "rulebook": "AGENTS.md"

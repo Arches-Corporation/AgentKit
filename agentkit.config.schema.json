@@ -262,6 +262,21 @@
           "description": "false disables all managed agents (guardrails-only style install)"
         }
       ]
+    },
+    "rulebooks": {
+      "description": "Rulebook files to auto-inject the managed agentkit block into (default: CLAUDE.md/AGENTS.md/GEMINI.md/.cursor/rules/agentkit.md that exist; seeds CLAUDE.md if none). false = opt out.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "boolean",
+          "const": false
+        }
+      ]
     }
   },
   "definitions": {

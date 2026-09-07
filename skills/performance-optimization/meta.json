@@ -1,4 +1,5 @@
 {
+  "description": "Backend performance pass: N+1/eager-load, indexes, memory, search.",
   "vars": {
     "beStack": "Rails \u00b7 MySQL \u00b7 Sidekiq",
     "scaleNote": "Design with production row counts in mind.",

@@ -1,3 +1,4 @@
 {
+  "description": "Verify code matches the approved spec (proposal/design/AC) before finishing.",
   "vars": {}
 }

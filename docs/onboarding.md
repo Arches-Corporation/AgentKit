@@ -61,7 +61,7 @@ Gitignore `.agentkit/state/` only — never the whole `.agentkit/` dir, or local
 ## 5. Sync and prove
 
 ```bash
-npx agentkit sync      # installs managed skills/commands/agents ("no assets" when kinds are disabled)
+npx agentkit sync      # installs managed assets AND auto-wires your rulebook (CLAUDE.md/AGENTS.md/GEMINI.md/.cursor); seeds CLAUDE.md if none exists
 npx agentkit doctor    # strict: config keys/types/regexes, wiring, asset drift
 npx agentkit verify    # behavioral proof — every enabled guardrail actually blocks its fixture
 ```
@@ -92,6 +92,10 @@ npm install     # (repo's own manager) — guardrails run from node_modules; thi
 ```
 
 Nothing else. `npx agentkit doctor` any time to check the install.
+
+## Rulebook auto-wiring (no manual step)
+
+`sync` maintains a marker-fenced block (`<!-- agentkit:start -->…<!-- agentkit:end -->`) in your rulebook files listing the synced skills/agents and the guardrail note — so agents actually discover and use them. It regenerates each sync, never touches content outside the markers, and seeds a `CLAUDE.md` if the repo has none. You never hand-edit the block. Opt out with `"rulebooks": false`, or target specific files with `"rulebooks": ["CLAUDE.md"]`. Full detail: [rulebook-injection.md](rulebook-injection.md).
 
 ## What to expect once it's live
 
