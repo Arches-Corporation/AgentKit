@@ -1,4 +1,5 @@
 {
+  "description": "Deep backend security pass: authz coverage, tenant isolation, injection, secret exposure.",
   "vars": {
     "ciGateNote": "",
     "beConventions": "The backend app's conventions doc (auth framework, serializers, validation contracts, soft-delete).",

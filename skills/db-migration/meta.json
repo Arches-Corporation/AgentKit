@@ -1,3 +1,4 @@
 {
+  "description": "Plan a safe migration: reversibility, indexing, lock/backfill strategy.",
   "vars": {}
 }

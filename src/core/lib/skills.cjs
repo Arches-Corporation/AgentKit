@@ -61,7 +61,21 @@ function readAssetDir(dir, name, tier, kind) {
     template,
     installPath: typeof meta.installPath === 'string' ? meta.installPath : spec.defaultTarget(name),
     varDefaults: (meta.vars && typeof meta.vars === 'object') ? meta.vars : {},
+    description: typeof meta.description === 'string' ? meta.description : deriveDescription(template),
   };
+}
+
+// One-line "use when" for the rulebook block. Prefer meta.description; else the
+// agent frontmatter `description:`; else the first prose sentence of the body.
+function deriveDescription(template) {
+  const fm = template.match(/^---\n[\s\S]*?\ndescription:\s*(.+?)\n[\s\S]*?\n---/);
+  if (fm) return fm[1].trim().replace(/^["']|["']$/g, '');
+  for (const line of template.split('\n')) {
+    const t = line.trim();
+    if (!t || t.startsWith('#') || t.startsWith('---') || t.startsWith('>')) continue;
+    return t.replace(/\s+/g, ' ').slice(0, 140);
+  }
+  return '';
 }
 
 function listAssetDirs(dir, kind) {
@@ -164,6 +178,7 @@ function renderAll(config, packNameValue) {
       kind: asset.kind,
       tier: asset.tier,
       target: asset.installPath,
+      description: asset.description,
       content,
       hash: sha256(content),
     });

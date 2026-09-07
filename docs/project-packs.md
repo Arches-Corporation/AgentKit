@@ -30,6 +30,9 @@ One repo = one pack. Packs shadow nothing: a pack guardrail named like a built-i
 |---|---|---|
 | `EKB` | EKB monorepo (Rails + React) | `dev-rules-reminder`, `pr-body-contract`, `precompact-capture`, `session-restore` |
 | `Referral-Management` | Referral-Management (Next.js + Supabase) | `spec-in-commit` (staged-spec model), `pr-body-contract` (configurable `required` sections), `dev-rules-reminder` (full at SessionStart, terse per prompt) |
+| `b2b-survey` | b2b-survey (pnpm monorepo) | *reserved — empty; team adds its own* |
+| `arches-fe` | arches-fe (Vite React SPA) | *reserved — empty* |
+| `arches-internal-system` | arches-internal-system (Rails) | *reserved — empty* |
 
 ## Packs vs repo-local guardrails
 

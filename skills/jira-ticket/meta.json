@@ -1,4 +1,5 @@
 {
+  "description": "Create or update a Jira ticket to the team standard.",
   "vars": {
     "orgName": "Arches",
     "rulebook": "AGENTS.md"

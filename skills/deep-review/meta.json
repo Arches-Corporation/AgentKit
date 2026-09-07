@@ -1,4 +1,5 @@
 {
+  "description": "Independent 14-dimension review of a diff in a separate session before opening a PR.",
   "vars": {
     "rulebook": "AGENTS.md",
     "apiContractRow": "Endpoint matches spec route/verb; serializer covers all fields; FE API config updated per the repo's convention",

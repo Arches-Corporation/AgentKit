@@ -14,6 +14,7 @@ const { createMarkers } = require('../src/core/lib/markers.cjs');
 const { aggregate, formatStats } = require('../src/core/lib/stats.cjs');
 const { removeAssets, unwireClaude, unwireCursor, unwireLegacyClaude, unwireLegacyCursor } = require('../src/core/lib/uninstall.cjs');
 const skillsLib = require('../src/core/lib/skills.cjs');
+const { wireRulebooks, rulebookStatus, unwireRulebooks } = require('../src/core/lib/rulebook.cjs');
 const { hooksFragment } = require('../src/adapters/claude/settings-fragment.cjs');
 
 function usage() {
@@ -232,6 +233,10 @@ function cmdSync(args) {
   try { kitVersion = require('../package.json').version; } catch { /* keep unknown */ }
   skillsLib.writeManifest(root, kitVersion, rendered);
   process.stdout.write(`synced ${rendered.length} assets (${changes.length} changed) — manifest: ${skillsLib.MANIFEST_REL}\n`);
+
+  const wired = wireRulebooks(root, cfg, rendered);
+  if (wired.seeded) process.stdout.write(`auto-wired: seeded ${wired.seeded} with the agentkit block (no rulebook existed)\n`);
+  else if (wired.written.length) process.stdout.write(`auto-wired agentkit block into: ${wired.written.join(', ')}\n`);
 }
 
 function cmdDoctor(args = []) {
@@ -360,6 +365,12 @@ function runDoctor(args = []) {
         }
       }
       if (assetsOk) good(`${assetsCheck.rendered.length} managed assets in sync`);
+    }
+    if (!assetsCheck.errors.length && assetsCheck.rendered.length) {
+      const rb = rulebookStatus(root, cfg, assetsCheck.rendered);
+      if (rb.missing) warn('no rulebook carries the agentkit block — run: agentkit sync (seeds CLAUDE.md)');
+      else if (!rb.ok) warn(`agentkit block out of date in: ${rb.stale.join(', ')} (run: agentkit sync)`);
+      else good('rulebook agentkit block present + current');
     }
   }
 
@@ -660,6 +671,9 @@ function cmdUninstall(args) {
 
   try { fs.rmSync(stateDir(cfg, root), { recursive: true, force: true }); } catch { /* none */ }
   process.stdout.write('removed state dir (markers, log)\n');
+
+  const rbRemoved = unwireRulebooks(root);
+  if (rbRemoved.length) process.stdout.write(`removed agentkit block from: ${rbRemoved.join(', ')}\n`);
 
   if (purge) {
     try { fs.rmSync(path.join(root, CONFIG_FILENAME)); } catch { /* none */ }

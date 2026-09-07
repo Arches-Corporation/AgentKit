@@ -1,6 +1,6 @@
 'use strict';
 
-const TOP_LEVEL_KEYS = new Set(['$schema', 'stateDir', 'project', 'localGuardrailsDir', 'guardrails', 'skills', 'commands', 'agents']);
+const TOP_LEVEL_KEYS = new Set(['$schema', 'stateDir', 'project', 'localGuardrailsDir', 'guardrails', 'skills', 'commands', 'agents', 'rulebooks']);
 
 function validateAssetSection(sectionName, sectionCfg, allowedKeys, kindLabel, knownNames, errors) {
   if (sectionCfg === false) return;
@@ -141,6 +141,11 @@ function validateConfig(config, resolved) {
   }
   if (config.project !== undefined && typeof config.project !== 'string') {
     errors.push('project: must be a string');
+  }
+  if (config.rulebooks !== undefined && config.rulebooks !== false) {
+    if (!Array.isArray(config.rulebooks) || config.rulebooks.some((r) => typeof r !== 'string')) {
+      errors.push('rulebooks: must be an array of file paths, or false to opt out of rulebook auto-wiring');
+    }
   }
 
   if (config.skills !== undefined) {

@@ -123,3 +123,13 @@ test('legacy alias: project "ekb" still resolves to the EKB pack, doctor warns',
   const doctor = require('node:child_process').spawnSync('node', [CLI, 'doctor'], { encoding: 'utf8', cwd: repo });
   assert.match(doctor.stdout, /legacy alias — rename to "EKB"/);
 });
+
+test('empty pack: reserved name resolves, no guardrails, no error', () => {
+  const { packExists, loadPack } = require('../src/core/lib/projects.cjs');
+  for (const p of ['b2b-survey', 'arches-fe', 'arches-internal-system']) {
+    assert.strictEqual(packExists(p), true, `${p} pack dir exists`);
+    const loaded = loadPack(p);
+    assert.deepStrictEqual(loaded.errors, [], `${p} loads clean`);
+    assert.strictEqual(loaded.guardrails.length, 0, `${p} has no guardrails yet`);
+  }
+});
