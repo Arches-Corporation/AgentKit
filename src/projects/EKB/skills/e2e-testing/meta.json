@@ -1,3 +1,4 @@
 {
+  "description": "Author/run Playwright e2e tests for apps/web.",
   "installPath": "apps/web/.claude/skills/e2e-testing/SKILL.md"
 }

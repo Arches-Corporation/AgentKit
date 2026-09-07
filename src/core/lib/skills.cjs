@@ -66,16 +66,31 @@ function readAssetDir(dir, name, tier, kind) {
 }
 
 // One-line "use when" for the rulebook block. Prefer meta.description; else the
-// agent frontmatter `description:`; else the first prose sentence of the body.
+// frontmatter `description:`; else the first prose sentence of the body (with
+// the frontmatter stripped so we never surface `name:`/`tools:` lines).
 function deriveDescription(template) {
-  const fm = template.match(/^---\n[\s\S]*?\ndescription:\s*(.+?)\n[\s\S]*?\n---/);
-  if (fm) return fm[1].trim().replace(/^["']|["']$/g, '');
-  for (const line of template.split('\n')) {
+  let body = template;
+  const fm = template.match(/^---\n([\s\S]*?)\n---\s*([\s\S]*)$/);
+  if (fm) {
+    const d = fm[1].match(/^description:\s*(.+)$/m);
+    if (d) return oneLine(d[1]);
+    body = fm[2];
+  }
+  for (const line of body.split('\n')) {
     const t = line.trim();
-    if (!t || t.startsWith('#') || t.startsWith('---') || t.startsWith('>')) continue;
-    return t.replace(/\s+/g, ' ').slice(0, 140);
+    if (!t || t.startsWith('#') || t.startsWith('---') || t.startsWith('>') || t.startsWith('|')) continue;
+    return oneLine(t);
   }
   return '';
+}
+
+// Collapse whitespace; prefer the first sentence; cap at a word boundary.
+function oneLine(s) {
+  const flat = String(s).replace(/\s+/g, ' ').replace(/^["']|["']$/g, '').trim();
+  const sentence = flat.match(/^(.*?\.)(\s|$)/);
+  const pick = sentence && sentence[1].length >= 30 ? sentence[1] : flat;
+  if (pick.length <= 160) return pick;
+  return pick.slice(0, 157).replace(/\s+\S*$/, '') + '…';
 }
 
 function listAssetDirs(dir, kind) {
@@ -150,6 +165,12 @@ function buildVars(config) {
   return vars;
 }
 
+// Substitute {{vars}} in a plain string; leave unknown placeholders as-is.
+function renderVars(text, merged) {
+  if (!text) return '';
+  return String(text).replace(PLACEHOLDER_RE, (whole, v) => (merged[v] === undefined ? whole : String(merged[v])));
+}
+
 function render(asset, vars) {
   const merged = Object.assign({}, asset.varDefaults, vars);
   const missing = new Set();
@@ -178,7 +199,7 @@ function renderAll(config, packNameValue) {
       kind: asset.kind,
       tier: asset.tier,
       target: asset.installPath,
-      description: asset.description,
+      description: renderVars(asset.description, Object.assign({}, asset.varDefaults, vars)),
       content,
       hash: sha256(content),
     });

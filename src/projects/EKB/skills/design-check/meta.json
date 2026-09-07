@@ -1,0 +1,3 @@
+{
+  "description": "Design-system conformance gate for FE visual diffs (tokens, canonical components, no new hex/var)."
+}
