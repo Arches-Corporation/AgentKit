@@ -60,6 +60,14 @@ With a sink configured, the first session start of the day fires a detached, bes
 
 Zero-infra team receiver (Google Apps Script → Sheet): [telemetry-sink-apps-script.md](telemetry-sink-apps-script.md).
 
+## Token totals (local transcript mining)
+
+`report`/`--export` also include per-day, per-model token totals, read from the local Claude Code transcript store (`~/.claude/projects/**/*.jsonl`). This is the Team-plan answer to "token summaries per engineer" — the vendor Analytics API that would provide the same numbers is Enterprise-gated, but the raw counts already sit on each machine.
+
+Privacy: the miner reads only the numeric `usage` block (input/output/cache tokens), the `model` id, the timestamp, and the session `cwd` (used to attribute tokens to the right repo). Message content, tool inputs, and system prompts in those transcripts are never read — fixture-tested. Attribution is by `cwd`, so a repo's export counts only its own sessions (no double-counting across repos sharing the global store).
+
+Config: `mineTokens` (default `true`) toggles it; `agentkit report --no-tokens` skips it for a faster run. `<synthetic>` assistant entries (Claude Code's injected notices, zero usage) are excluded. Dollar cost is intentionally not computed — the `tokens` tab carries raw counts; apply a price table in the sheet, or read exact spend from the admin dashboard.
+
 ## Behavior notes
 
 - Disabling is a visible config change (`"usage-telemetry": { "enabled": false }`) — auditable in git history, no hidden opt-outs. Tell the team before enabling a sink; covert telemetry destroys trust.

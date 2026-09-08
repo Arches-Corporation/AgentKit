@@ -12,6 +12,8 @@ Access control = the deployment URL itself (long random ID, treat it like a shar
 ```javascript
 const SHEET_NAME = 'rows';
 const HEADER = ['received_at', 'date', 'user', 'repo', 'sessions', 'skills', 'agents', 'commands', 'prompts', 'top_names', 'guardrail_blocks_day', 'guardrail_names'];
+const TOKENS_SHEET = 'tokens';
+const TOKENS_HEADER = ['received_at', 'date', 'user', 'repo', 'model', 'input', 'output', 'cache_read', 'cache_write', 'messages'];
 
 function doPost(e) {
   let payload;
@@ -33,10 +35,10 @@ function doPost(e) {
   }
 
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-    if (sheet.getLastRow() === 0) sheet.appendRow(HEADER);
-
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
     const receivedAt = new Date().toISOString();
+
+    const sheet = getSheet(ss, SHEET_NAME, HEADER);
     const guardrailsByDay = payload.guardrailsByDay || {};
     const rows = ((payload.usage && payload.usage.rows) || []).map(function (r) {
       const topNames = Object.keys(r.names || {})
@@ -53,13 +55,28 @@ function doPost(e) {
       }).join('; ');
       return [receivedAt, r.date, r.user, r.repo, r.sessions, r.skills, r.agents, r.commands, r.prompts || 0, topNames, blocks, gnames];
     });
-    if (rows.length) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, HEADER.length).setValues(rows);
+    if (rows.length) sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, HEADER.length).setValues(rows);
+
+    // Token totals (from local Claude Code transcripts — usage numbers only)
+    const tokenRows = ((payload.tokens && payload.tokens.rows) || []).map(function (t) {
+      return [receivedAt, t.date, payload.user || '', payload.repo || '', t.model, t.input, t.output, t.cacheRead, t.cacheWrite, t.messages];
+    });
+    if (tokenRows.length) {
+      const ts = getSheet(ss, TOKENS_SHEET, TOKENS_HEADER);
+      ts.getRange(ts.getLastRow() + 1, 1, tokenRows.length, TOKENS_HEADER.length).setValues(tokenRows);
     }
-    return reply({ ok: true, appended: rows.length });
+
+    return reply({ ok: true, appended: rows.length, tokens: tokenRows.length });
   } finally {
     lock.releaseLock();
   }
+}
+
+function getSheet(ss, name, header) {
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  if (sheet.getLastRow() === 0) sheet.appendRow(header);
+  return sheet;
 }
 
 function reply(obj) {
@@ -69,7 +86,7 @@ function reply(obj) {
 
 3. Deploy → New deployment → type **Web app** → Execute as **Me**, access **Anyone with the link** → Deploy. Copy the `https://script.google.com/macros/s/…/exec` URL.
 
-Note: exports are cumulative rollups (the kit re-sends all days it still holds), so the sheet accumulates duplicate `(date, user, repo)` rows across days — dedupe in the summary view: `=SORT(UNIQUE(rows!B2:L))`, or pivot on date+user taking MAX of the counters.
+Note: exports are cumulative rollups (the kit re-sends all days it still holds), so the sheet accumulates duplicate `(date, user, repo)` rows across days — dedupe in the summary view: `=SORT(UNIQUE(rows!B2:L))` (activity) / `=SORT(UNIQUE(tokens!B2:J))` (tokens), or pivot on date+user taking MAX of the counters. The `tokens` tab is created on the first export that carries token data.
 
 ### Rate limits & concurrency (why this is safe for the whole team)
 
