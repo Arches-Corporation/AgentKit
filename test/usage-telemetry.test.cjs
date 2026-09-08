@@ -278,6 +278,31 @@ test('report: format + csv include usage rows and guardrail day counts', () => {
   assert.ok(csv.includes('a@x.co,EKB,1,1,0,0,0'));
 });
 
+test('guardrail rollup: per-guardrail breakdown alongside flat decision totals', () => {
+  const { aggregateGuardrailsByDay, guardrailNames } = require('../src/core/lib/usage.cjs');
+  const day = '2026-09-10';
+  const lines = [
+    JSON.stringify({ ts: `${day}T08:00:00Z`, guardrail: 'hard-stop', decision: 'block', reason: 'x' }),
+    JSON.stringify({ ts: `${day}T09:00:00Z`, guardrail: 'hard-stop', decision: 'block', reason: 'y' }),
+    JSON.stringify({ ts: `${day}T10:00:00Z`, guardrail: 'scout-block', decision: 'block', reason: 'z' }),
+    JSON.stringify({ ts: `${day}T11:00:00Z`, guardrail: 'rules-reminder', decision: 'inject' }),
+  ];
+  const byDay = aggregateGuardrailsByDay(lines);
+  // flat decision totals still present (Apps Script reads .block)
+  assert.strictEqual(byDay[day].block, 3);
+  assert.strictEqual(byDay[day].inject, 1);
+  // per-guardrail breakdown present
+  assert.strictEqual(byDay[day].guardrails['hard-stop'].block, 2);
+  assert.strictEqual(byDay[day].guardrails['scout-block'].block, 1);
+  assert.strictEqual(byDay[day].guardrails['rules-reminder'].inject, 1);
+  const names = guardrailNames(byDay[day]);
+  assert.deepStrictEqual(names, ['hard-stop block:2', 'rules-reminder inject:1', 'scout-block block:1']);
+  // formatReport shows the names line and does not print the non-numeric key
+  const text = formatReport({ usage: { total: 0, rows: [] }, guardrailsByDay: byDay });
+  assert.ok(text.includes('hard-stop block:2'));
+  assert.ok(!/guardrails \[object/.test(text));
+});
+
 test('exportReport: file mode writes payload into sink dir and stamps marker', (t, done) => {
   const stateDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-usage-export-'));
   const sink = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-usage-sink-'));
@@ -313,5 +338,50 @@ test('exportReport: sinkMode none is a no-op, unreachable endpoint fails open', 
         done();
       }
     );
+  });
+});
+
+test('exportReport: retries a 503 then succeeds (rate-limit resilience)', (t, done) => {
+  const http = require('http');
+  const stateDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-usage-retry-'));
+  createUsageLog(stateDirPath)({ event: 'session_start', user: 'a@x.co', repo: 'EKB' });
+  let hits = 0;
+  const server = http.createServer((req, res) => {
+    hits += 1;
+    if (hits === 1) { res.writeHead(503); res.end('slow down'); return; }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, appended: 1 }));
+  });
+  server.listen(0, '127.0.0.1', () => {
+    const url = `http://127.0.0.1:${server.address().port}/agentkit`;
+    exportReport({ sinkMode: 'endpoint', sinkUrl: url }, stateDirPath, 'EKB', 'a@x.co', (err, msg) => {
+      server.close();
+      assert.ifError(err);
+      assert.strictEqual(hits, 2, 'should have retried once after the 503');
+      assert.ok(/endpoint accepted/.test(msg));
+      done();
+    });
+  });
+});
+
+test('exportReport: retries when Apps Script lock replies ok:false busy', (t, done) => {
+  const http = require('http');
+  const stateDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-usage-busy-'));
+  createUsageLog(stateDirPath)({ event: 'session_start', user: 'a@x.co', repo: 'EKB' });
+  let hits = 0;
+  const server = http.createServer((req, res) => {
+    hits += 1;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    // First reply is a 200 that is actually a lock-contention failure.
+    res.end(JSON.stringify(hits === 1 ? { ok: false, error: 'busy' } : { ok: true, appended: 1 }));
+  });
+  server.listen(0, '127.0.0.1', () => {
+    const url = `http://127.0.0.1:${server.address().port}/agentkit`;
+    exportReport({ sinkMode: 'endpoint', sinkUrl: url }, stateDirPath, 'EKB', 'a@x.co', (err) => {
+      server.close();
+      assert.ifError(err);
+      assert.strictEqual(hits, 2, 'a 200 ok:false busy body must trigger a retry');
+      done();
+    });
   });
 });
