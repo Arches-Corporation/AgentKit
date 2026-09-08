@@ -93,9 +93,12 @@ function wiredSettings(names) {
   for (const g of registry.list()) {
     if (!names.includes(g.name)) continue;
     for (const event of g.events) {
+      const perEvent = g.matchers && Object.prototype.hasOwnProperty.call(g.matchers, event)
+        ? g.matchers[event]
+        : g.matcher;
       byEvent[event] = byEvent[event] || [];
       byEvent[event].push({
-        matcher: g.matcher || undefined,
+        matcher: perEvent || undefined,
         hooks: [{ type: 'command', command: `node "$CLAUDE_PROJECT_DIR/node_modules/@arches/agentkit/src/adapters/claude/run.cjs" ${g.name}` }],
       });
     }

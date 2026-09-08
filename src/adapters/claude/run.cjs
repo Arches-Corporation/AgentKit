@@ -78,6 +78,8 @@ function main() {
     options: optionsFor(config, guardrail.name),
     markers: createMarkers(state),
     log,
+    stateDirPath: state,
+    adapter: 'claude',
   };
 
   let result = null;

@@ -222,6 +222,32 @@
               "description": "Extra repo-relative paths (dirs end with /) the guard protects beyond the built-in enforcement-layer set."
             }
           }
+        },
+        "usage-telemetry": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "sinkMode": {
+              "type": "string",
+              "enum": ["none", "file", "endpoint"],
+              "description": "Where the daily usage rollup is exported: none (local only), file (write JSON into sinkPath), endpoint (POST JSON to sinkUrl)."
+            },
+            "sinkPath": {
+              "type": "string",
+              "description": "Directory for file-mode exports (absolute allowed — e.g. a Drive-synced folder)."
+            },
+            "sinkUrl": {
+              "type": "string",
+              "description": "URL for endpoint-mode exports (POST, JSON body)."
+            },
+            "sinkAuthTokenEnv": {
+              "type": "string",
+              "description": "Name of an env var holding a bearer token for endpoint mode — never the token itself."
+            }
+          }
         }
       },
       "additionalProperties": {

@@ -35,6 +35,7 @@ The `#semver:^X.Y.Z` range behaves like any npm caret: it resolves to the newest
 | `db-guard` | PreToolUse (Bash) | destructive db ops — `rails db:drop/reset`, SQL `DROP`/`TRUNCATE`, `docker compose down -v` | [docs/guardrails/db-guard.md](docs/guardrails/db-guard.md) |
 | `rules-reminder` | UserPromptSubmit | nothing — injects your configured rule summary once per session (silent until `text` is set) | [docs/guardrails/rules-reminder.md](docs/guardrails/rules-reminder.md) |
 | `tamper-guard` | PreToolUse (Edit/Write/Bash) | agent edits to the enforcement layer itself (`agentkit.config.json`, `.agentkit/**`, hook wiring) + agent-run `agentkit approve` — **always-on**, cannot be config-disabled | [docs/guardrails/tamper-guard.md](docs/guardrails/tamper-guard.md) |
+| `usage-telemetry` | SessionStart · PostToolUse (Skill/Task/Agent) · UserPromptSubmit | nothing — observer that records sessions, skill/agent/command usage and content-free prompt ticks (names and counts only, never prompt or tool-input content; Claude Code + Cursor) to `usage-log.jsonl`; rollup via `agentkit report` | [docs/telemetry.md](docs/telemetry.md) |
 
 Every block message tells the agent the compliant next step. Escape hatches are deliberate, **user-only**, and auditable: one-shot approval via `npx agentkit approve <marker>` in the user's own terminal (`hard-stop`, `spec-first`, `force-push-guard`, `db-guard`) or an `APPROVED:` prefix (`privacy-block`, `scout-block`), each logged to `.agentkit/state/guardrail-log.jsonl`. What guardrails do and don't defend against: [docs/threat-model.md](docs/threat-model.md).
 
@@ -56,6 +57,7 @@ agentkit sync [--check]       render + install managed assets (skills, commands,
 agentkit doctor               check node version, config validity, wiring, asset drift
 agentkit verify               doctor + behavioral smoke of every enabled guardrail + sync state
 agentkit stats [--json]       aggregate the guardrail log — events, top block reasons, recent blocks
+agentkit report [--json|--csv] [--since <days>] [--export]   usage rollup per user/day; --export ships it to the configured sink
 agentkit approve [marker]     USER-ONLY: grant a one-shot approval (default git-approved) — agents are blocked from running it
 agentkit trust                trust the current repo-local guardrails so they may execute (hashes stored outside the repo)
 agentkit new <kind> <name>    scaffold a kit asset (guardrail|skill|command|agent) — kit repo only

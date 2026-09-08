@@ -12,6 +12,7 @@ const { validateConfig, checkClaudeWiring } = require('../src/core/lib/validate.
 const { checkRemote } = require('../src/core/lib/remote.cjs');
 const { createMarkers } = require('../src/core/lib/markers.cjs');
 const { aggregate, formatStats } = require('../src/core/lib/stats.cjs');
+const { buildReport, formatReport, toCsv, exportReport } = require('../src/core/lib/usage.cjs');
 const { removeAssets, unwireClaude, unwireCursor, unwireLegacyClaude, unwireLegacyCursor } = require('../src/core/lib/uninstall.cjs');
 const skillsLib = require('../src/core/lib/skills.cjs');
 const { wireRulebooks, rulebookStatus, unwireRulebooks } = require('../src/core/lib/rulebook.cjs');
@@ -26,6 +27,7 @@ function usage() {
     '  doctor [--check-remote]  Strict check: node, config, pack, wiring + asset drift; flag also compares installed vs latest kit tag\n' +
     '  verify               doctor + behavioral smoke of every enabled guardrail + sync state — one-shot install proof\n' +
     '  stats [--json]       Aggregate the guardrail log: events by guardrail/decision, top block reasons, recent blocks\n' +
+    '  report [--json|--csv] [--since <days>] [--export]  Usage rollup per user/day (sessions, skills, agents, commands, prompts); --export ships it to the configured sink\n' +
     '  new <kind> <name> [--pack <pack>]  Scaffold a kit asset (guardrail|skill|command|agent) — AgentKit repo only\n' +
     '  approve [marker]     USER-ONLY: grant the one-shot approval a guardrail asked for (default marker: git-approved)\n' +
     '  trust                Trust the current content of repo-local guardrails (.agentkit/guardrails/*.cjs) so they may run\n' +
@@ -482,6 +484,7 @@ function cmdVerify() {
       options: optionsFor(cfg, g.name),
       markers: createMarkers(path.join(tmp, 'state')),
       log: () => {},
+      stateDirPath: path.join(tmp, 'state'),
     };
     const fixture = SMOKE_FIXTURES[g.name];
     try {
@@ -544,6 +547,54 @@ function cmdStats(args) {
     process.stdout.write(JSON.stringify(stats, null, 2) + '\n');
   } else {
     process.stdout.write(formatStats(stats) + '\n');
+  }
+  process.exit(0);
+}
+
+function cmdReport(args) {
+  const root = findRepoRoot(process.cwd());
+  const cfg = loadConfig(root);
+  const state = stateDir(cfg, root);
+
+  let sinceTs = null;
+  if (args.includes('--since')) {
+    const days = Number(args[args.indexOf('--since') + 1]);
+    if (!Number.isFinite(days) || days <= 0) {
+      process.stderr.write('agentkit report: --since expects a positive number of days\n');
+      process.exit(1);
+    }
+    sinceTs = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  if (args.includes('--export')) {
+    const options = optionsFor(cfg, 'usage-telemetry');
+    const usageTelemetry = registry.get('usage-telemetry');
+    const merged = Object.assign({}, usageTelemetry.defaults, options);
+    let repoName = path.basename(root);
+    let userName = 'unknown';
+    try {
+      userName = require('child_process')
+        .execFileSync('git', ['config', 'user.email'], { cwd: root, timeout: 1000, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().trim() || os.userInfo().username;
+    } catch { userName = os.userInfo().username; }
+    exportReport(merged, state, repoName, userName, (err, msg) => {
+      if (err) {
+        process.stdout.write(`export failed (fail-open — sessions unaffected): ${err.message}\n`);
+        process.exit(0);
+      }
+      process.stdout.write(`export ok: ${msg}\n`);
+      process.exit(0);
+    });
+    return;
+  }
+
+  const report = buildReport(state, sinceTs);
+  if (args.includes('--json')) {
+    process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+  } else if (args.includes('--csv')) {
+    process.stdout.write(toCsv(report));
+  } else {
+    process.stdout.write(formatReport(report) + '\n');
   }
   process.exit(0);
 }
@@ -738,6 +789,7 @@ function main() {
     case 'doctor': return cmdDoctor(args);
     case 'verify': return cmdVerify();
     case 'stats': return cmdStats(args);
+    case 'report': return cmdReport(args);
     case 'approve': return cmdApprove(args);
     case 'trust': return cmdTrust();
     case 'new': return cmdNew(args);

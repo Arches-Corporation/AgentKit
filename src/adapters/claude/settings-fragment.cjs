@@ -17,7 +17,13 @@ function hooksFragment(extraGuardrails = []) {
   for (const [event, guardrails] of Object.entries(byEvent)) {
     const byMatcher = {};
     for (const g of guardrails) {
-      const key = g.matcher || '';
+      // Per-event override (g.matchers[event]) beats the single g.matcher —
+      // lets one guardrail listen narrowly on PostToolUse but broadly on
+      // SessionStart.
+      const perEvent = g.matchers && Object.prototype.hasOwnProperty.call(g.matchers, event)
+        ? g.matchers[event]
+        : g.matcher;
+      const key = perEvent || '';
       byMatcher[key] = byMatcher[key] || [];
       byMatcher[key].push({ type: 'command', command: `${RUNNER} ${g.name}` });
     }

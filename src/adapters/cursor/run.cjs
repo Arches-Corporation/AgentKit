@@ -33,7 +33,11 @@ function readStdin() {
   }
 }
 
-function normalize(input) {
+// Cursor event names → the kit's canonical hookEvent vocabulary, so guardrails
+// that branch on event.hookEvent behave the same under both adapters.
+const HOOK_EVENT_MAP = { beforeSubmitPrompt: 'UserPromptSubmit' };
+
+function normalize(input, eventName) {
   const paths = [];
   for (const key of ['file_path', 'path']) {
     if (typeof input[key] === 'string' && input[key]) paths.push(input[key]);
@@ -44,7 +48,7 @@ function normalize(input) {
       ? input.workspace_roots[0]
       : process.cwd());
   return {
-    hookEvent: null,
+    hookEvent: HOOK_EVENT_MAP[eventName] || null,
     toolName: null,
     command: typeof input.command === 'string' ? input.command : '',
     paths,
@@ -77,7 +81,7 @@ function main() {
   }
 
   const { input, malformed } = readStdin();
-  const event = normalize(input);
+  const event = normalize(input, eventName);
   const repoRoot = findRepoRoot(event.cwd);
   const config = loadConfig(repoRoot);
   const state = stateDir(config, repoRoot);
@@ -100,6 +104,8 @@ function main() {
       options: optionsFor(config, guardrail.name),
       markers: createMarkers(state),
       log,
+      stateDirPath: state,
+      adapter: 'cursor',
     };
     let result = null;
     try {

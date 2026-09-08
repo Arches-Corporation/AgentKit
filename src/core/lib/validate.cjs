@@ -100,6 +100,7 @@ const BUILT_IN_OPTION_SPECS = {
   'db-guard': { extraPatterns: 'patternObjArray', approvalMarker: 'string' },
   'rules-reminder': { text: 'stringOrStringArray', oncePerSession: 'boolean' },
   'tamper-guard': { protect: 'stringArray' },
+  'usage-telemetry': { sinkMode: 'string', sinkPath: 'string', sinkUrl: 'string', sinkAuthTokenEnv: 'string' },
 };
 
 function typeNameOf(defaultValue) {
@@ -249,7 +250,10 @@ function checkClaudeWiring(settings, config, resolved) {
       if (!g.events.includes(w.event)) {
         errors.push(`"${name}" wired under event ${w.event} but declares ${g.events.join(',')}`);
       }
-      const expectedMatcher = g.matcher || null;
+      const perEvent = g.matchers && Object.prototype.hasOwnProperty.call(g.matchers, w.event)
+        ? g.matchers[w.event]
+        : g.matcher;
+      const expectedMatcher = perEvent || null;
       if (w.matcher !== expectedMatcher) {
         errors.push(`"${name}" wired with matcher ${JSON.stringify(w.matcher)} but declares ${JSON.stringify(expectedMatcher)}`);
       }
