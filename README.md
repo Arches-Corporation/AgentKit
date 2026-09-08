@@ -57,7 +57,7 @@ agentkit sync [--check]       render + install managed assets (skills, commands,
 agentkit doctor               check node version, config validity, wiring, asset drift
 agentkit verify               doctor + behavioral smoke of every enabled guardrail + sync state
 agentkit stats [--json]       aggregate the guardrail log — events, top block reasons, recent blocks
-agentkit report [--json|--csv] [--since <days>] [--export]   usage rollup per user/day; --export ships it to the configured sink
+agentkit report [--json|--csv] [--since <days>] [--export] [--no-tokens]   usage rollup per user/day + local token totals; --export ships it to the configured sink
 agentkit approve [marker]     USER-ONLY: grant a one-shot approval (default git-approved) — agents are blocked from running it
 agentkit trust                trust the current repo-local guardrails so they may execute (hashes stored outside the repo)
 agentkit new <kind> <name>    scaffold a kit asset (guardrail|skill|command|agent) — kit repo only

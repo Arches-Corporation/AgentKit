@@ -56,9 +56,11 @@ Never recorded: prompt text, tool inputs/outputs, command arguments, file paths,
 - Export cadence: on `SessionStart`, if the last successful export is >24 h old, the adapter spawns a detached best-effort export of the previous day's rollup. Manual: `agentkit report --export`.
 - Disabling is a visible, committed config change — auditable by design, no hidden opt-outs.
 
-## Non-goals (this PR)
+## Token mining (follow-up branch `feat/usage-telemetry-tokens`)
 
-- Token/cost data — not visible to hooks. Landed instead in the follow-up `feat/usage-telemetry-tokens` branch via local `~/.claude/**` transcript mining (usage fields only), since the vendor Analytics API is Enterprise-gated and unavailable on our Team plan. `report` leaves columns for that merge.
+Delivered: `src/core/lib/tokens.cjs` mines local Claude Code transcripts (`~/.claude/projects/**/*.jsonl`) for per-day/per-model token totals — the Team-plan replacement for the Enterprise-gated vendor Analytics API. Reads only the numeric `usage` block + model + timestamp + cwd (attributes to repo, no double-count); never message content. Config `mineTokens` (default on), `report --no-tokens` to skip. Ships in the same export payload → `tokens` tab in the Sheet.
+
+## Non-goals (this PR)
 - Cursor skill/agent depth — the beta hook surface has no PostToolUse; Cursor records `prompt`/`command` activity only (implemented). Deeper Cursor metrics, if ever needed, come from its Admin API.
 - Central database/dashboard — rollup rows in a Google Sheet (via the Apps Script sink) are sufficient at current team size.
 

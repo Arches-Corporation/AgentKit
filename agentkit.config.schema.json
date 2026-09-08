@@ -246,6 +246,10 @@
             "sinkAuthTokenEnv": {
               "type": "string",
               "description": "Name of an env var holding a bearer token for endpoint mode — never the token itself."
+            },
+            "mineTokens": {
+              "type": "boolean",
+              "description": "Include local Claude Code token totals (per day/model, from ~/.claude transcripts — usage numbers only, no content) in the report/export. Default true."
             }
           }
         }
