@@ -43,6 +43,13 @@
     "tamper-guard": {
       "enabled": true,
       "protect": []
+    },
+    "usage-telemetry": {
+      "enabled": true,
+      "sinkMode": "none",
+      "sinkPath": "",
+      "sinkUrl": "",
+      "sinkAuthTokenEnv": ""
     }
   }
 }

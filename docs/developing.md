@@ -41,6 +41,7 @@ module.exports = {
   name: 'require-migration-note',
   events: ['PreToolUse'],        // or UserPromptSubmit / SessionStart / PreCompact
   matcher: 'Bash',               // Claude tool matcher; null = all
+  // matchers: { PostToolUse: 'Skill|Task' },  // optional per-event override of matcher (see usage-telemetry)
   failClosed: false,             // true = an internal error blocks instead of allows
   defaults: { notePath: 'docs/migrations.md' },
   check(event, ctx) {

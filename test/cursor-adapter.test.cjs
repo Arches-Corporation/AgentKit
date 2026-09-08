@@ -76,3 +76,15 @@ test('cursor: init --tool cursor writes hooks.json idempotently', () => {
   assert.strictEqual(cfg.hooks.beforeShellExecution.length, 1);
   assert.ok(cfg.hooks.beforeSubmitPrompt);
 });
+
+test('cursor: prompt submit records a usage event (adapter tagged, no content)', () => {
+  const repo = tmpRepo();
+  const r = runEvent('beforeSubmitPrompt', { prompt: 'refactor SENSITIVE auth flow', conversation_id: 'c1', cwd: repo }, repo);
+  assert.strictEqual(r.out.continue, true);
+  const raw = fs.readFileSync(path.join(repo, '.agentkit', 'state', 'usage-log.jsonl'), 'utf8');
+  const entry = JSON.parse(raw.trim().split('\n')[0]);
+  assert.strictEqual(entry.event, 'prompt');
+  assert.strictEqual(entry.adapter, 'cursor');
+  assert.strictEqual(entry.session, 'c1');
+  assert.ok(!raw.includes('SENSITIVE'));
+});
