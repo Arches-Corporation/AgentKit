@@ -205,11 +205,28 @@
               "type": "boolean"
             }
           }
+        },
+        "tamper-guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Note: tamper-guard is always-on at runtime; this flag only affects wiring checks."
+            },
+            "protect": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Extra repo-relative paths (dirs end with /) the guard protects beyond the built-in enforcement-layer set."
+            }
+          }
         }
       },
       "additionalProperties": {
         "type": "object",
-        "description": "Pack or repo-local guardrail settings \u2014 keys validated by `agentkit doctor` against the guardrail's declared defaults",
+        "description": "Pack or repo-local guardrail settings — keys validated by `agentkit doctor` against the guardrail's declared defaults",
         "properties": {
           "enabled": {
             "type": "boolean"

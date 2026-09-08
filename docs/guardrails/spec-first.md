@@ -19,7 +19,7 @@ Enforces "no code without a spec": work is defined in a spec before implementati
 Genuinely exempt change (trivial fix, generated file):
 
 ```bash
-touch .agentkit/state/spec-approved
+npx agentkit approve spec-approved   # user-only, run in your own terminal
 ```
 
 One-shot — consumed by the next commit.

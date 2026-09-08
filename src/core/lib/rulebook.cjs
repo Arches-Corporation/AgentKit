@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { insideRepo } = require('./config.cjs');
 
 const START = '<!-- agentkit:start -->';
 const END = '<!-- agentkit:end -->';
@@ -86,6 +87,7 @@ function targetRulebooks(repoRoot, config) {
   if (cfg === false) return [];
   const list = Array.isArray(cfg) && cfg.length ? cfg : DEFAULT_RULEBOOKS;
   const existing = list.filter((rel) => {
+    if (!insideRepo(repoRoot, rel)) return false;
     try { return fs.statSync(path.join(repoRoot, rel)).isFile(); } catch { return false; }
   });
   return existing;

@@ -32,9 +32,8 @@ function check(event, ctx) {
       return {
         block:
           `BLOCKED: command matches a destructive database operation (${label}) — potential data loss. ` +
-          'If genuinely intended (local dev reset), get user approval, then have them run:\n' +
-          `  touch "${ctx.markers.markerPath(opts.approvalMarker)}"\n` +
-          'and retry (marker is one-shot).',
+          'If genuinely intended (local dev reset), report it and STOP; the user grants approval in ' +
+          `their own terminal (\`npx agentkit approve ${opts.approvalMarker}\`, one-shot), then retry.`,
       };
     }
   }

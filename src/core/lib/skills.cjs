@@ -184,11 +184,23 @@ function render(asset, vars) {
   return { content, missing: [...missing] };
 }
 
+// An installPath must stay inside the consumer repo — a crafted meta.json
+// must not be able to direct sync's writes (or later deletes) outside it.
+function safeInstallPath(rel) {
+  if (typeof rel !== 'string' || !rel || path.isAbsolute(rel)) return false;
+  const norm = path.normalize(rel);
+  return norm !== '..' && !norm.startsWith('..' + path.sep);
+}
+
 function renderAll(config, packNameValue) {
   const vars = buildVars(config);
   const rendered = [];
   const errors = [];
   for (const asset of resolveAssets(config, packNameValue)) {
+    if (!safeInstallPath(asset.installPath)) {
+      errors.push(`${asset.kind} "${asset.name}": installPath "${asset.installPath}" escapes the repo — fix meta.json in the kit`);
+      continue;
+    }
     const { content, missing } = render(asset, vars);
     if (missing.length) {
       errors.push(`${asset.kind} "${asset.name}": unresolved template vars: ${missing.join(', ')} — set skills.vars in agentkit.config.json`);

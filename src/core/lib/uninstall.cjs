@@ -26,12 +26,26 @@ function pruneEmptyDirs(root, target) {
   }
 }
 
+// Manifest targets are attacker-writable (the manifest lives in the repo) —
+// never delete outside the repo root.
+function containedTarget(root, target) {
+  if (typeof target !== 'string' || !target || path.isAbsolute(target)) return null;
+  const rootAbs = path.resolve(root);
+  const resolved = path.resolve(rootAbs, target);
+  return resolved.startsWith(rootAbs + path.sep) ? resolved : null;
+}
+
 function removeAssets(root, manifest) {
   const removed = [];
   for (const e of (manifest && manifest.entries) || []) {
     if (!e || typeof e.target !== 'string') continue;
+    const abs = containedTarget(root, e.target);
+    if (!abs) {
+      process.stderr.write(`agentkit: manifest target "${e.target}" escapes the repo — skipped\n`);
+      continue;
+    }
     try {
-      fs.rmSync(path.join(root, e.target));
+      fs.rmSync(abs);
       removed.push(e.target);
     } catch { /* already gone */ }
     pruneEmptyDirs(root, e.target);
@@ -85,4 +99,4 @@ function unwireLegacyCursor(cfg) {
   return unwireHooks(cfg, ['@arches-corporation/agentkit/src/adapters/cursor/run.cjs']);
 }
 
-module.exports = { removeAssets, unwireClaude, unwireCursor, unwireLegacyClaude, unwireLegacyCursor, pruneEmptyDirs };
+module.exports = { removeAssets, unwireClaude, unwireCursor, unwireLegacyClaude, unwireLegacyCursor, pruneEmptyDirs, containedTarget };

@@ -1,5 +1,7 @@
 'use strict';
 
+const { gitSegments } = require('../lib/text.cjs');
+
 const NAME = 'force-push-guard';
 
 const DEFAULTS = {
@@ -9,24 +11,32 @@ const DEFAULTS = {
 
 function check(event, ctx) {
   const cmd = event.command;
-  if (!cmd || !/\bgit\s+push\b/.test(cmd)) return null;
+  if (!cmd) return null;
+
+  const segments = gitSegments(cmd, ['push']);
+  if (!segments.length) return null;
 
   const opts = Object.assign({}, DEFAULTS, ctx.options);
-  const hasLease = /--force-with-lease\b/.test(cmd);
-  const hasForce = /--force\b(?!-with-lease)/.test(cmd) || /(?:^|\s)-[a-zA-Z]*f[a-zA-Z]*\b(?=[^-]|$)/.test(cmd.replace(/--\S+/g, ''));
+  for (const seg of segments) {
+    const hasLease = /--force-with-lease\b/.test(seg);
+    const hasForce = /--force\b(?!-with-lease)/.test(seg) || /(?:^|\s)-[a-zA-Z]*f[a-zA-Z]*\b(?=[^-]|$)/.test(seg.replace(/--\S+/g, ''));
 
-  if (hasLease && opts.allowForceWithLease && !hasForce) return null;
-  if (!hasLease && !hasForce) return null;
+    if (hasLease && opts.allowForceWithLease && !hasForce) continue;
+    if (!hasLease && !hasForce) continue;
 
-  if (ctx.markers.consume(opts.approvalMarker)) return null;
+    if (ctx.markers.consume(opts.approvalMarker)) continue;
 
-  return {
-    block:
-      'BLOCKED: force push rewrites remote history — data loss for everyone tracking the branch. ' +
-      'If genuinely intended (own feature branch after rebase), get user approval, then have them run:\n' +
-      `  touch "${ctx.markers.markerPath(opts.approvalMarker)}"\n` +
-      'and retry (marker is one-shot). Prefer --force-with-lease over --force.',
-  };
+    // Approval is granted by the human via `npx agentkit approve force-push-approved`
+    // — the mechanism is deliberately not spelled out to the agent.
+    return {
+      block:
+        'BLOCKED: force push rewrites remote history — data loss for everyone tracking the branch. ' +
+        'If genuinely intended (own feature branch after rebase), report it and STOP; the user grants ' +
+        'approval themselves (one-shot). Prefer --force-with-lease over --force.',
+    };
+  }
+
+  return null;
 }
 
 module.exports = {

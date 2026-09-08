@@ -9,13 +9,22 @@ const { packName, getFromPack } = require('../../core/lib/projects.cjs');
 const { createMarkers } = require('../../core/lib/markers.cjs');
 const { createLog } = require('../../core/lib/log.cjs');
 
+// Empty stdin = manual invocation, treated as a no-op event. MALFORMED stdin
+// is different: Claude Code always sends valid JSON, so garbage means the
+// event was tampered with or truncated — a fail-closed guardrail must block
+// rather than run against an empty event (which would silently allow).
 function readStdin() {
+  let raw = '';
   try {
-    const raw = fs.readFileSync(0, 'utf8');
-    if (!raw.trim()) return {};
-    return JSON.parse(raw);
+    raw = fs.readFileSync(0, 'utf8');
   } catch {
-    return {};
+    return { input: {}, malformed: false };
+  }
+  if (!raw.trim()) return { input: {}, malformed: false };
+  try {
+    return { input: JSON.parse(raw), malformed: false };
+  } catch {
+    return { input: {}, malformed: true };
   }
 }
 
@@ -42,7 +51,7 @@ function normalize(input) {
 
 function main() {
   const name = process.argv[2];
-  const input = readStdin();
+  const { input, malformed } = readStdin();
   const event = normalize(input);
   const repoRoot = findRepoRoot(event.cwd);
   const config = loadConfig(repoRoot);
@@ -55,7 +64,12 @@ function main() {
     process.exit(1);
   }
 
-  if (!isEnabled(config, guardrail.name)) process.exit(0);
+  if (malformed && guardrail.failClosed) {
+    process.stderr.write(`[${guardrail.name}] hook event on stdin is not valid JSON — blocking (fail-closed)\n`);
+    process.exit(2);
+  }
+
+  if (!guardrail.alwaysOn && !isEnabled(config, guardrail.name)) process.exit(0);
 
   const state = stateDir(config, repoRoot);
   const log = createLog(state);
@@ -86,7 +100,11 @@ function main() {
 
   if (result && result.inject) {
     log({ guardrail: guardrail.name, decision: 'inject' });
-    process.stdout.write(JSON.stringify({ hookSpecificOutput: { additionalContext: result.inject } }));
+    // Claude Code's hook contract wants hookEventName echoed back inside
+    // hookSpecificOutput for the additionalContext to be attributed.
+    const hookSpecificOutput = { additionalContext: result.inject };
+    if (event.hookEvent) hookSpecificOutput.hookEventName = event.hookEvent;
+    process.stdout.write(JSON.stringify({ hookSpecificOutput }));
     process.exit(0);
   }
 
