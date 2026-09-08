@@ -17,7 +17,11 @@ const DEFAULTS = {
   protect: [],
 };
 
-const MUTATION_RE = /(?:^|[\s;&|])(?:touch|rm|mv|cp|chmod|chown|tee|truncate|ln|install|dd|sed\s+(?:-[a-zA-Z]*\s+)*-i)\b|>>?/;
+// Commands whose ARGUMENTS they mutate. `git add`/`commit`/`status` and other
+// readers may name protected paths freely — staging the manifest for a commit
+// is normal workflow, not tampering.
+const MUTATION_VERBS = new Set(['touch', 'rm', 'mv', 'cp', 'chmod', 'chown', 'tee', 'truncate', 'ln', 'dd']);
+const WRAPPER_WORDS = new Set(['command', 'env', 'nohup', 'nice', 'time', 'timeout', 'xargs', 'sudo', 'doas', 'setsid', 'stdbuf', 'builtin', 'exec']);
 
 function protectedList(ctx) {
   const extra = Array.isArray(ctx.options.protect) ? ctx.options.protect : DEFAULTS.protect;
@@ -32,6 +36,36 @@ function matchProtected(candidate, list, repoRoot) {
   for (const p of list) {
     if (p.endsWith('/') ? (norm === p.slice(0, -1) || norm.startsWith(p) || norm.includes('/' + p)) : (norm === p || norm.endsWith('/' + p))) {
       return p;
+    }
+  }
+  return null;
+}
+
+// A protected path counts as MUTATED only when (a) it is an argument of a
+// mutating verb leading its shell segment, (b) it is a redirect target, or
+// (c) it is edited in place by `sed -i`. Mentions elsewhere (git add, cat,
+// grep, `2>&1`) are allowed.
+function mutatedProtectedPath(cmd, list, repoRoot) {
+  for (const segment of String(cmd).split(/&&|\|\||;|\||\n/)) {
+    for (const m of segment.matchAll(/(?<![\d&])>>?\s*(\S+)/g)) {
+      const hit = matchProtected(m[1], list, repoRoot);
+      if (hit) return hit;
+    }
+    const tokens = segment
+      .replace(/"((?:\\.|[^"\\])*)"/g, '$1')
+      .replace(/'([^']*)'/g, '$1')
+      .split(/\s+/)
+      .filter(Boolean);
+    let i = 0;
+    while (i < tokens.length && (WRAPPER_WORDS.has(tokens[i]) || /^\w+=/.test(tokens[i]))) i += 1;
+    const verb = tokens[i];
+    if (!verb) continue;
+    const isSedInPlace = verb === 'sed' && tokens.slice(i + 1).some((t) => /^-[a-zA-Z]*i/.test(t));
+    if (!MUTATION_VERBS.has(verb) && !isSedInPlace) continue;
+    for (const arg of tokens.slice(i + 1)) {
+      if (arg.startsWith('-')) continue;
+      const hit = matchProtected(arg, list, repoRoot);
+      if (hit) return hit;
     }
   }
   return null;
@@ -62,17 +96,13 @@ function check(event, ctx) {
           'its own approval defeats the HARD STOP. Report what needs approval and wait.',
       };
     }
-    if (MUTATION_RE.test(cmd)) {
-      for (const token of cmd.split(/[\s;&|<>]+/)) {
-        const hit = token && matchProtected(token, list, ctx.repoRoot);
-        if (hit) {
-          return {
-            block:
-              `BLOCKED: this command touches the guardrail enforcement layer (${hit}) — agents must not modify it. ` +
-              'If a change there is genuinely needed, ask the user to make it themselves.',
-          };
-        }
-      }
+    const hit = mutatedProtectedPath(cmd, list, ctx.repoRoot);
+    if (hit) {
+      return {
+        block:
+          `BLOCKED: this command modifies the guardrail enforcement layer (${hit}) — agents must not do that. ` +
+          'If a change there is genuinely needed, ask the user to make it themselves.',
+      };
     }
   }
 

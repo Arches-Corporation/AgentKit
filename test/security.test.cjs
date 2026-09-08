@@ -130,9 +130,13 @@ test('tamper-guard blocks shell mutation of the enforcement layer', () => {
   for (const cmd of [
     'touch .agentkit/state/git-approved',
     'echo "{}" > agentkit.config.json',
+    'echo ok >> .claude/settings.json',
     'rm -rf .agentkit',
     'chmod 500 .agentkit/state',
     'sed -i "" -e s/x/y/ .claude/settings.json',
+    'true && touch .agentkit/state/git-approved',
+    'echo x | tee agentkit.config.json',
+    'env touch .agentkit/state/git-approved',
   ]) {
     const r = tamperGuard.check(bashEvent(cmd, repo), ctxFor(repo));
     assert.ok(r && r.block, `expected block for: ${cmd}`);
@@ -155,6 +159,10 @@ test('tamper-guard allows normal work', () => {
     'git status',
     'touch src/new-file.ts',
     'npm test > out.log',
+    'git add .agentkit/skills.manifest.json .claude/settings.json',
+    'git commit -m "chore: refresh kit" 2>&1 | tail -3',
+    'git diff .claude/settings.json',
+    'grep tamper agentkit.config.json | head',
   ]) {
     const r = tamperGuard.check(bashEvent(cmd, repo), ctxFor(repo));
     assert.strictEqual(r, null, `false positive on: ${cmd}`);

@@ -30,6 +30,7 @@ Without it, a blocked agent's cheapest move is to edit `agentkit.config.json` (`
 ## Behavior notes
 
 - Reads are allowed — the agent may inspect the config, just not change it.
+- Only *mutations* block: a protected path as the argument of a mutating verb (`touch`/`rm`/`mv`/`cp`/`chmod`/`tee`/…), a redirect target, or `sed -i`. `git add`/`git commit`/`git diff` naming the manifest or settings (routine when committing a kit refresh), `cat`/`grep`, and `2>&1` are fine.
 - `npx agentkit sync|init|doctor` run by the agent still work (they don't name protected paths on the command line); the CLI itself maintains those files.
 - If a config change is genuinely needed, the agent should ask the user to make it.
 - Residual: exotic shell (interpreters, encoded commands) can evade the Bash lexer — the guard raises friction and logs; see [threat-model.md](../threat-model.md).
