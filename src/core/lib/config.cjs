@@ -36,9 +36,27 @@ function optionsFor(config, name) {
   return entry && typeof entry === 'object' ? entry : {};
 }
 
-function stateDir(config, repoRoot) {
-  const rel = (config && config.stateDir) || '.agentkit/state';
-  return path.resolve(repoRoot, rel);
+// Containment: a config- or manifest-supplied relative path must resolve to a
+// location INSIDE the repo. Absolute paths and ../ escapes are rejected —
+// otherwise a crafted manifest/config could write or delete files outside the
+// repo (path traversal).
+function insideRepo(repoRoot, rel) {
+  if (typeof rel !== 'string' || !rel || path.isAbsolute(rel)) return false;
+  const rootAbs = path.resolve(repoRoot);
+  const resolved = path.resolve(rootAbs, rel);
+  return resolved === rootAbs || resolved.startsWith(rootAbs + path.sep);
 }
 
-module.exports = { CONFIG_FILENAME, findRepoRoot, loadConfig, isEnabled, optionsFor, stateDir };
+function containedPath(repoRoot, rel) {
+  return insideRepo(repoRoot, rel) ? path.resolve(repoRoot, rel) : null;
+}
+
+function stateDir(config, repoRoot) {
+  const rel = (config && config.stateDir) || '.agentkit/state';
+  const p = containedPath(repoRoot, rel);
+  if (p) return p;
+  process.stderr.write(`agentkit: stateDir "${rel}" escapes the repo — using default .agentkit/state\n`);
+  return path.resolve(repoRoot, '.agentkit/state');
+}
+
+module.exports = { CONFIG_FILENAME, findRepoRoot, loadConfig, isEnabled, optionsFor, stateDir, insideRepo, containedPath };

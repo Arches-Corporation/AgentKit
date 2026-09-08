@@ -36,11 +36,27 @@ module.exports = {
 - `ctx` = `{ repoRoot, options, markers, log }` — options come from `agentkit.config.json` under the guardrail's name; markers give one-shot approval files; log writes to the shared jsonl.
 - Return `null` (allow), `{ block: reason }`, or `{ inject: text }`.
 
+## Trust (required before anything executes)
+
+Local guardrails are code that AgentKit `require()`s — and the repo working
+tree is not trusted at CLI time (cloning a repo must never mean executing its
+`.agentkit/guardrails/`). So every file must be explicitly trusted first:
+
+```bash
+npx agentkit trust                # records SHA256 of each local guardrail
+```
+
+Hashes live outside the repo (`~/.agentkit/trust/`, override with
+`AGENTKIT_TRUST_DIR`). An untrusted or edited file is **skipped everywhere**
+(doctor/verify/sync warn; the adapter treats it as unknown) until you review it
+and re-run `trust`. Per developer machine — each teammate trusts their own clone.
+
 ## Wiring
 
 After adding a file, re-run:
 
 ```bash
+npx agentkit trust                # trust the new/changed file
 npx agentkit init --tool claude   # wires it into .claude/settings.json (idempotent)
 npx agentkit doctor               # confirms it loads
 ```

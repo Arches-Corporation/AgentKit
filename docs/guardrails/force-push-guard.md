@@ -13,7 +13,7 @@ Force pushes rewrite remote history: anyone tracking the branch loses commits, C
 ## Approval flow
 
 ```bash
-touch .agentkit/state/force-push-approved
+npx agentkit approve force-push-approved   # user-only, run in your own terminal
 ```
 
 One-shot — consumed by the next force push.

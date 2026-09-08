@@ -5,8 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const registry = require('../src/core/registry.cjs');
-const { CONFIG_FILENAME, findRepoRoot, loadConfig, isEnabled, optionsFor, stateDir } = require('../src/core/lib/config.cjs');
-const { DEFAULT_DIR, loadAll } = require('../src/core/lib/local.cjs');
+const { CONFIG_FILENAME, findRepoRoot, loadConfig, isEnabled, optionsFor, stateDir, insideRepo } = require('../src/core/lib/config.cjs');
+const { DEFAULT_DIR, loadAll, trustAll } = require('../src/core/lib/local.cjs');
 const { packName, packAliasUsed, packExists, loadPack, listPacks, LEGACY_PACK_ALIASES } = require('../src/core/lib/projects.cjs');
 const { validateConfig, checkClaudeWiring } = require('../src/core/lib/validate.cjs');
 const { checkRemote } = require('../src/core/lib/remote.cjs');
@@ -27,6 +27,8 @@ function usage() {
     '  verify               doctor + behavioral smoke of every enabled guardrail + sync state — one-shot install proof\n' +
     '  stats [--json]       Aggregate the guardrail log: events by guardrail/decision, top block reasons, recent blocks\n' +
     '  new <kind> <name> [--pack <pack>]  Scaffold a kit asset (guardrail|skill|command|agent) — AgentKit repo only\n' +
+    '  approve [marker]     USER-ONLY: grant the one-shot approval a guardrail asked for (default marker: git-approved)\n' +
+    '  trust                Trust the current content of repo-local guardrails (.agentkit/guardrails/*.cjs) so they may run\n' +
     '  uninstall [--purge]  Remove synced assets, unwire hooks, delete state; --purge also removes config + .agentkit/\n' +
     '  list                 List guardrails and synced assets: built-in, project pack, local\n' +
     '  hook <name>          Run one guardrail as a Claude hook (stdin JSON)\n'
@@ -129,6 +131,7 @@ function cmdInit(args) {
 
   const local = loadAll(config, root);
   for (const e of local.errors) process.stdout.write(`warn local guardrail ${e}\n`);
+  for (const f of local.untrusted) process.stdout.write(`warn local guardrail ${f} is untrusted — not wired (review it, then run: agentkit trust)\n`);
   const localOk = local.guardrails.filter((g) => {
     if (takenNames.has(g.name)) {
       process.stdout.write(`warn local guardrail "${g.name}" shadows a built-in or pack guardrail — ignored\n`);
@@ -215,6 +218,12 @@ function cmdSync(args) {
 
   const byKey = new Map(rendered.map((r) => [`${r.kind}:${r.name}`, r]));
   for (const a of actions) {
+    // Delete targets come from the manifest (repo-writable) — a target outside
+    // the repo is an attack, not a stale asset.
+    if (a.target && !insideRepo(root, a.target)) {
+      process.stderr.write(`warn sync target "${a.target}" escapes the repo — skipped\n`);
+      continue;
+    }
     if (a.type === 'create' || a.type === 'update') {
       const r = byKey.get(`${a.kind}:${a.name}`);
       const abs = path.join(root, r.target);
@@ -294,6 +303,7 @@ function runDoctor(args = []) {
 
   const local = loadAll(cfg, root);
   for (const e of local.errors) fail(`local guardrail ${e}`);
+  for (const f of local.untrusted) warn(`local guardrail ${f} is untrusted — not loaded (review it, then run: agentkit trust)`);
   const takenNames = new Set([...builtinNames, ...packOk.map((g) => g.name)]);
   const localOk = [];
   for (const g of local.guardrails) {
@@ -437,6 +447,7 @@ const SMOKE_FIXTURES = {
   'scout-block': (tmp) => ({ event: pathSmokeEvent(path.join(tmp, 'node_modules', 'x.js'), tmp), expect: 'block' }),
   'force-push-guard': (tmp) => ({ event: bashSmokeEvent('git push --force origin x', tmp), expect: 'block' }),
   'db-guard': (tmp) => ({ event: bashSmokeEvent('bundle exec rails db:drop', tmp), expect: 'block' }),
+  'tamper-guard': (tmp) => ({ event: bashSmokeEvent('touch .agentkit/state/git-approved', tmp), expect: 'block' }),
 };
 
 function bashSmokeEvent(command, cwd) {
@@ -634,6 +645,39 @@ function cmdNew(args) {
   for (const s of nextSteps) process.stdout.write(`  - ${s}\n`);
 }
 
+const MARKER_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+// USER-ONLY by contract: the tamper-guard blocks agents from invoking this,
+// and guardrail block messages never spell out the mechanism. Run it in your
+// own terminal when a guardrail reports it needs approval.
+function cmdApprove(args) {
+  const name = args.find((a) => !a.startsWith('--')) || 'git-approved';
+  if (!MARKER_NAME_RE.test(name)) {
+    process.stderr.write(`agentkit approve: invalid marker name "${name}" (lowercase letters, digits, dashes)\n`);
+    process.exit(1);
+  }
+  const root = findRepoRoot(process.cwd());
+  const cfg = loadConfig(root);
+  const markers = createMarkers(stateDir(cfg, root));
+  if (!markers.place(name)) {
+    process.stderr.write(`agentkit approve: could not write the "${name}" marker (state dir permissions?)\n`);
+    process.exit(1);
+  }
+  process.stdout.write(`approved: "${name}" (one-shot — consumed by the next matching action)\n`);
+}
+
+function cmdTrust() {
+  const root = findRepoRoot(process.cwd());
+  const cfg = loadConfig(root);
+  const { files, storePath } = trustAll(cfg, root);
+  if (!files.length) {
+    process.stdout.write('no repo-local guardrails found — nothing to trust\n');
+    return;
+  }
+  process.stdout.write(`trusted ${files.length} local guardrail(s): ${files.join(', ')}\n`);
+  process.stdout.write(`hashes recorded in ${storePath} — re-run after any edit\n`);
+}
+
 function cmdUninstall(args) {
   const purge = args.includes('--purge');
   const root = findRepoRoot(process.cwd());
@@ -694,6 +738,8 @@ function main() {
     case 'doctor': return cmdDoctor(args);
     case 'verify': return cmdVerify();
     case 'stats': return cmdStats(args);
+    case 'approve': return cmdApprove(args);
+    case 'trust': return cmdTrust();
     case 'new': return cmdNew(args);
     case 'uninstall': return cmdUninstall(args);
     case 'list': return cmdList();

@@ -16,13 +16,20 @@ const EVENT_MAP = {
   beforeSubmitPrompt: { select: (g) => g.events.includes('UserPromptSubmit'), reply: 'continue' },
 };
 
+// Empty stdin = manual invocation (no-op event); malformed stdin = tampered or
+// truncated event — fail-closed guardrails must deny, not run against {}.
 function readStdin() {
+  let raw = '';
   try {
-    const raw = fs.readFileSync(0, 'utf8');
-    if (!raw.trim()) return {};
-    return JSON.parse(raw);
+    raw = fs.readFileSync(0, 'utf8');
   } catch {
-    return {};
+    return { input: {}, malformed: false };
+  }
+  if (!raw.trim()) return { input: {}, malformed: false };
+  try {
+    return { input: JSON.parse(raw), malformed: false };
+  } catch {
+    return { input: {}, malformed: true };
   }
 }
 
@@ -69,7 +76,7 @@ function main() {
     process.exit(0);
   }
 
-  const input = readStdin();
+  const { input, malformed } = readStdin();
   const event = normalize(input);
   const repoRoot = findRepoRoot(event.cwd);
   const config = loadConfig(repoRoot);
@@ -82,8 +89,12 @@ function main() {
   const locals = loadAll(config, repoRoot).guardrails.filter((g) => !takenNames.has(g.name));
   const candidates = registry.list().concat(pack, locals).filter(mapping.select);
 
+  if (malformed && candidates.some((g) => g.failClosed)) {
+    respond(mapping.reply, 'agentkit: hook event on stdin is not valid JSON — blocking (fail-closed)');
+  }
+
   for (const guardrail of candidates) {
-    if (!isEnabled(config, guardrail.name)) continue;
+    if (!guardrail.alwaysOn && !isEnabled(config, guardrail.name)) continue;
     const ctx = {
       repoRoot,
       options: optionsFor(config, guardrail.name),

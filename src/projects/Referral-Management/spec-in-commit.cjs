@@ -62,13 +62,12 @@ function check(event, ctx) {
   if (staged.some((f) => specRe.test(f))) return null;
 
   const sample = code.slice(0, 3).join(', ') + (code.length > 3 ? ', …' : '');
-  const markerHint = `  touch "${ctx.markers.markerPath(opts.approvalMarker)}"\nthen re-commit (marker is one-shot).`;
   return {
     block:
       `BLOCKED: spec-first — product code is staged (${sample}) with no spec in this commit. ` +
       'Rule: no code without a spec. Add/stage a spec under docs/features/ (or docs/tasks, ' +
-      'docs/enhancements), or — if genuinely spec-exempt (refactor, dep bump, config) — run:\n' +
-      markerHint,
+      'docs/enhancements), or — if genuinely spec-exempt (refactor, dep bump, config) — have the user run ' +
+      `\`npx agentkit approve ${opts.approvalMarker}\` in their own terminal, then re-commit (one-shot).`,
   };
 }
 

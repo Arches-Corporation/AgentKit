@@ -15,7 +15,15 @@ function createMarkers(stateDirPath) {
   function consume(name) {
     const p = markerPath(name);
     if (!fs.existsSync(p)) return false;
-    try { fs.unlinkSync(p); } catch { /* one-shot best-effort */ }
+    // One-shot means DELETED-then-approved. If the delete fails (permissions
+    // games on the state dir), the marker would become a permanent approval —
+    // fail closed instead.
+    try {
+      fs.unlinkSync(p);
+    } catch (err) {
+      process.stderr.write(`agentkit: approval marker "${name}" exists but could not be consumed (${err && err.message}) — treating as NOT approved\n`);
+      return false;
+    }
     return true;
   }
 

@@ -18,7 +18,7 @@ An agent "fixing" a migration by resetting the database is a classic irreversibl
 ## Approval flow
 
 ```bash
-touch .agentkit/state/db-approved
+npx agentkit approve db-approved   # user-only, run in your own terminal
 ```
 
 One-shot — consumed by the next matching command.

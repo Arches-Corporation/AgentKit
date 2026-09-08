@@ -39,6 +39,10 @@
       "enabled": true,
       "text": [],
       "oncePerSession": true
+    },
+    "tamper-guard": {
+      "enabled": true,
+      "protect": []
     }
   }
 }

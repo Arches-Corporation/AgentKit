@@ -99,7 +99,7 @@ Nothing else. `npx agentkit doctor` any time to check the install.
 
 ## What to expect once it's live
 
-Guardrails intercept agent tool calls in Claude Code sessions. **Blocks are normal and self-explanatory** — every block message states the compliant next step (e.g. "get user approval, then `touch <marker>`"). Approval markers are one-shot files under the configured `stateDir`, consumed per use. Every decision is logged to `<stateDir>/guardrail-log.jsonl`; `npx agentkit stats` summarizes it. A false positive is worth a kit issue — the same fix then reaches every repo.
+Guardrails intercept agent tool calls in Claude Code sessions. **Blocks are normal and self-explanatory** — every block message states the compliant next step. Approvals are **user-only**: when a guardrail asks for one, run `npx agentkit approve <marker>` in your own terminal (or `! npx agentkit approve <marker>` inside the Claude Code prompt — `!` commands run as you, not the agent). Markers are one-shot, consumed per use; `tamper-guard` blocks agents from granting themselves approval or editing the enforcement config. Every decision is logged to `<stateDir>/guardrail-log.jsonl`; `npx agentkit stats` summarizes it. A false positive is worth a kit issue — the same fix then reaches every repo. Scope and residual risks: [threat-model.md](threat-model.md).
 
 ## Refreshing to the latest kit
 

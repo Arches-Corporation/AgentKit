@@ -99,6 +99,7 @@ const BUILT_IN_OPTION_SPECS = {
   'force-push-guard': { allowForceWithLease: 'boolean', approvalMarker: 'string' },
   'db-guard': { extraPatterns: 'patternObjArray', approvalMarker: 'string' },
   'rules-reminder': { text: 'stringOrStringArray', oncePerSession: 'boolean' },
+  'tamper-guard': { protect: 'stringArray' },
 };
 
 function typeNameOf(defaultValue) {
