@@ -27,7 +27,7 @@ function usage() {
     '  doctor [--check-remote]  Strict check: node, config, pack, wiring + asset drift; flag also compares installed vs latest kit tag\n' +
     '  verify               doctor + behavioral smoke of every enabled guardrail + sync state — one-shot install proof\n' +
     '  stats [--json]       Aggregate the guardrail log: events by guardrail/decision, top block reasons, recent blocks\n' +
-    '  report [--json|--csv] [--since <days>] [--export]  Usage rollup per user/day (sessions, skills, agents, commands, prompts); --export ships it to the configured sink\n' +
+    '  report [--json|--csv] [--since <days>] [--export] [--no-tokens]  Usage rollup per user/day (sessions, skills, agents, commands, prompts) + local token totals; --export ships it to the configured sink\n' +
     '  new <kind> <name> [--pack <pack>]  Scaffold a kit asset (guardrail|skill|command|agent) — AgentKit repo only\n' +
     '  approve [marker]     USER-ONLY: grant the one-shot approval a guardrail asked for (default marker: git-approved)\n' +
     '  trust                Trust the current content of repo-local guardrails (.agentkit/guardrails/*.cjs) so they may run\n' +
@@ -566,10 +566,12 @@ function cmdReport(args) {
     sinceTs = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   }
 
+  const options = optionsFor(cfg, 'usage-telemetry');
+  const merged = Object.assign({}, registry.get('usage-telemetry').defaults, options);
+  const mine = merged.mineTokens !== false && !args.includes('--no-tokens');
+  const tokenOpts = { mine, repoRoot: root };
+
   if (args.includes('--export')) {
-    const options = optionsFor(cfg, 'usage-telemetry');
-    const usageTelemetry = registry.get('usage-telemetry');
-    const merged = Object.assign({}, usageTelemetry.defaults, options);
     let repoName = path.basename(root);
     let userName = 'unknown';
     try {
@@ -584,11 +586,11 @@ function cmdReport(args) {
       }
       process.stdout.write(`export ok: ${msg}\n`);
       process.exit(0);
-    });
+    }, tokenOpts);
     return;
   }
 
-  const report = buildReport(state, sinceTs);
+  const report = buildReport(state, sinceTs, tokenOpts);
   if (args.includes('--json')) {
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
   } else if (args.includes('--csv')) {

@@ -10,6 +10,7 @@ const DEFAULTS = {
   sinkPath: '',
   sinkUrl: '',
   sinkAuthTokenEnv: '',
+  mineTokens: true,
 };
 
 const COMMAND_RE = /^\/([a-z0-9][a-z0-9:_-]*)/i;

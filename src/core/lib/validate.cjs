@@ -100,7 +100,7 @@ const BUILT_IN_OPTION_SPECS = {
   'db-guard': { extraPatterns: 'patternObjArray', approvalMarker: 'string' },
   'rules-reminder': { text: 'stringOrStringArray', oncePerSession: 'boolean' },
   'tamper-guard': { protect: 'stringArray' },
-  'usage-telemetry': { sinkMode: 'string', sinkPath: 'string', sinkUrl: 'string', sinkAuthTokenEnv: 'string' },
+  'usage-telemetry': { sinkMode: 'string', sinkPath: 'string', sinkUrl: 'string', sinkAuthTokenEnv: 'string', mineTokens: 'boolean' },
 };
 
 function typeNameOf(defaultValue) {
