@@ -51,14 +51,27 @@ agentkit report --export        build the rollup and ship it to the configured s
 
 | Option | Default | Meaning |
 |---|---|---|
-| `sinkMode` | `none` | `none` (local only) · `file` (write JSON into `sinkPath`, e.g. a Drive-synced folder) · `endpoint` (POST JSON to `sinkUrl`) |
+| `sinkMode` | `none` | `none` (local only) · `file` (write JSON into `sinkPath`) · `endpoint` (POST rollup JSON to `sinkUrl`) · `otel` (drain per-event OTLP/HTTP logs to `otelEndpoint`) |
 | `sinkPath` | `""` | directory for file mode — absolute paths allowed (export targets live outside the repo) |
 | `sinkUrl` | `""` | URL for endpoint mode |
 | `sinkAuthTokenEnv` | `""` | name of an env var holding a bearer token — never the token itself (§Security: no secrets in config). If the env var is unset the POST goes out without the header (fail-open); https is required whenever a token is present |
+| `otelEndpoint` | `""` | OTLP/HTTP logs URL for otel mode (e.g. `https://collector/v1/logs`) |
+| `otelHeaders` | `[]` | extra headers for otel mode as `"Key: Value"` strings (non-secret collector headers); https required if an `Authorization` header is present |
+| `otelAuthTokenEnv` | `""` | name of an env var holding the full `Authorization` header value for otel mode (e.g. `"Basic <base64>"` or `"Bearer <token>"`) — never the credential itself (§Security). Injected at export time, overrides any `Authorization` in `otelHeaders`; unset → no auth header (fail-open); https required |
 
 With a sink configured, the first session start of the day fires a detached, best-effort `report --export` (at most once per 24 h, stamped by `<stateDir>/last-usage-export`). Fail-open by design: an unreachable sink never blocks, slows, or errors a session — the export just retries next day.
 
 Zero-infra team receiver (Google Apps Script → Sheet): [telemetry-sink-apps-script.md](telemetry-sink-apps-script.md).
+
+## OTLP sink (`sinkMode: "otel"`)
+
+For teams that run an OpenTelemetry collector, `otel` mode ships the same metadata as **per-event OTLP/HTTP Logs** instead of a daily rollup. One `LogRecord` per event (session/skill/agent/command + each guardrail decision), under `resourceLogs → scopeLogs (agentkit.usage-telemetry) → logRecords`. Resource attributes carry `service.name=agentkit`, `user.email`, `repo`. Dependency-free — the OTLP JSON is hand-built and POSTed over raw https, reusing the same retry/backoff/jitter as the endpoint sink.
+
+**Why per-event (vs the rollup):** each guardrail record keeps its `tool_use_id`. Claude Code's own OpenTelemetry emits `claude_code.tool_decision` with `source:"hook"` and the *same* `tool_use_id` — but no hook name. Joining the two streams on `tool_use_id` turns Anthropic's anonymous "a hook blocked" into "**hard-stop** blocked", plus recovers inject-type guardrails and command names that native OTel can't see at all. The kit is the source of that identity; OTLP is just the transport.
+
+A `<stateDir>/last-otel-cursor` marker tracks the last-emitted timestamp per log so re-runs never duplicate events; the cursor only advances after a successful POST (fail-open — a dead collector re-sends next day). Setup + the join query: [telemetry-sink-otel.md](telemetry-sink-otel.md).
+
+This is orthogonal to the Apps Script sink — both are fed by the same kit events; you can run either, or both.
 
 ## Behavior notes
 

@@ -55,6 +55,7 @@ function normalize(input, eventName) {
     prompt: typeof input.prompt === 'string' ? input.prompt : (typeof input.text === 'string' ? input.text : ''),
     cwd,
     sessionId: typeof input.conversation_id === 'string' ? input.conversation_id : null,
+    toolUseId: typeof input.tool_use_id === 'string' ? input.tool_use_id : null,
     raw: input,
   };
 }
@@ -111,14 +112,14 @@ function main() {
     try {
       result = guardrail.check(event, ctx);
     } catch (err) {
-      log({ guardrail: guardrail.name, adapter: 'cursor', decision: 'error', reason: String((err && err.message) || err) });
+      log({ guardrail: guardrail.name, adapter: 'cursor', decision: 'error', reason: String((err && err.message) || err), toolUseId: event.toolUseId || undefined });
       if (guardrail.failClosed) {
         respond(mapping.reply, `[${guardrail.name}] internal error — blocking (fail-closed).`);
       }
       continue;
     }
     if (result && result.block) {
-      log({ guardrail: guardrail.name, adapter: 'cursor', decision: 'block', reason: result.block });
+      log({ guardrail: guardrail.name, adapter: 'cursor', decision: 'block', reason: result.block, toolUseId: event.toolUseId || undefined });
       respond(mapping.reply, result.block);
     }
   }

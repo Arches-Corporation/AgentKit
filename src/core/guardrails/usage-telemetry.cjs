@@ -10,6 +10,9 @@ const DEFAULTS = {
   sinkPath: '',
   sinkUrl: '',
   sinkAuthTokenEnv: '',
+  otelEndpoint: '',
+  otelHeaders: [],
+  otelAuthTokenEnv: '',
 };
 
 const COMMAND_RE = /^\/([a-z0-9][a-z0-9:_-]*)/i;
@@ -101,6 +104,7 @@ module.exports = {
       record.repo = path.basename(ctx.repoRoot);
       if (event.sessionId) record.session = event.sessionId;
       if (ctx.adapter) record.adapter = ctx.adapter;
+      if (event.toolUseId) record.toolUseId = event.toolUseId;
       createUsageLog(stateDirPath)(record);
       maybeExport(record, ctx.options || {}, ctx, stateDirPath);
     } catch { /* observer — never blocks, never throws */ }
