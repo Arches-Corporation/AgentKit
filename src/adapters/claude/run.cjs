@@ -45,6 +45,7 @@ function normalize(input) {
     prompt,
     cwd: typeof input.cwd === 'string' ? input.cwd : process.cwd(),
     sessionId: typeof input.session_id === 'string' ? input.session_id : null,
+    toolUseId: typeof input.tool_use_id === 'string' ? input.tool_use_id : null,
     raw: input,
   };
 }
@@ -86,7 +87,7 @@ function main() {
   try {
     result = guardrail.check(event, ctx);
   } catch (err) {
-    log({ guardrail: guardrail.name, decision: 'error', reason: String((err && err.message) || err) });
+    log({ guardrail: guardrail.name, decision: 'error', reason: String((err && err.message) || err), toolUseId: event.toolUseId || undefined });
     if (guardrail.failClosed) {
       process.stderr.write(`[${guardrail.name}] internal error — blocking (fail-closed): ${err && err.message}\n`);
       process.exit(2);
@@ -95,13 +96,13 @@ function main() {
   }
 
   if (result && result.block) {
-    log({ guardrail: guardrail.name, decision: 'block', reason: result.block });
+    log({ guardrail: guardrail.name, decision: 'block', reason: result.block, toolUseId: event.toolUseId || undefined });
     process.stderr.write(result.block.endsWith('\n') ? result.block : result.block + '\n');
     process.exit(2);
   }
 
   if (result && result.inject) {
-    log({ guardrail: guardrail.name, decision: 'inject' });
+    log({ guardrail: guardrail.name, decision: 'inject', toolUseId: event.toolUseId || undefined });
     // Claude Code's hook contract wants hookEventName echoed back inside
     // hookSpecificOutput for the additionalContext to be attributed.
     const hookSpecificOutput = { additionalContext: result.inject };

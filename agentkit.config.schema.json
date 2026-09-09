@@ -232,8 +232,8 @@
             },
             "sinkMode": {
               "type": "string",
-              "enum": ["none", "file", "endpoint"],
-              "description": "Where the daily usage rollup is exported: none (local only), file (write JSON into sinkPath), endpoint (POST JSON to sinkUrl)."
+              "enum": ["none", "file", "endpoint", "otel"],
+              "description": "Where usage is exported: none (local only), file (write JSON into sinkPath), endpoint (POST rollup JSON to sinkUrl), otel (drain per-event OTLP/HTTP logs to otelEndpoint)."
             },
             "sinkPath": {
               "type": "string",
@@ -246,6 +246,19 @@
             "sinkAuthTokenEnv": {
               "type": "string",
               "description": "Name of an env var holding a bearer token for endpoint mode — never the token itself."
+            },
+            "otelEndpoint": {
+              "type": "string",
+              "description": "OTLP/HTTP logs URL for otel-mode exports (e.g. https://collector.example.com/v1/logs). Per-event LogRecords carry tool_use_id for correlation with Claude Code's native tool_decision events."
+            },
+            "otelHeaders": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Extra HTTP headers for otel mode as \"Key: Value\" strings (e.g. collector auth). https required if an Authorization header is present. Prefer otelAuthTokenEnv for the credential — keep secrets out of config."
+            },
+            "otelAuthTokenEnv": {
+              "type": "string",
+              "description": "Name of an env var holding the full Authorization header value for otel mode (e.g. \"Basic <base64>\" or \"Bearer <token>\") — never the credential itself. Injected at export time; overrides any Authorization in otelHeaders. https required."
             }
           }
         }
