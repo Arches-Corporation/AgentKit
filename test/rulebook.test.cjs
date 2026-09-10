@@ -99,6 +99,44 @@ test('wireRulebooks: explicit rulebooks list honored', () => {
   assert.deepStrictEqual(r.written, ['RULES.md']);
 });
 
+test('sync: guardrails-only repo (zero assets) still auto-wires the rulebook block', () => {
+  const { spawnSync } = require('node:child_process');
+  const CLI = path.join(__dirname, '..', 'bin', 'agentkit.cjs');
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(
+    path.join(dir, 'agentkit.config.json'),
+    JSON.stringify({ skills: false, commands: false, agents: false })
+  );
+  const first = spawnSync('node', [CLI, 'sync'], { encoding: 'utf8', cwd: dir });
+  assert.strictEqual(first.status, 0);
+  assert.match(first.stdout, /auto-wired/);
+  const claude = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+  assert.match(claude, /agentkit:start/);
+  assert.doesNotMatch(claude, /\| Skill \|/);
+  const second = spawnSync('node', [CLI, 'sync'], { encoding: 'utf8', cwd: dir });
+  assert.strictEqual(second.status, 0);
+  assert.strictEqual((fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8').match(/agentkit:start/g) || []).length, 1);
+  const check = spawnSync('node', [CLI, 'sync', '--check'], { encoding: 'utf8', cwd: dir });
+  assert.strictEqual(check.status, 0);
+  assert.match(check.stdout, /rulebook block current/);
+  const doctor = spawnSync('node', [CLI, 'doctor'], { encoding: 'utf8', cwd: dir });
+  assert.match(doctor.stdout, /rulebook agentkit block present \+ current/);
+});
+
+test('doctor: warns when guardrails-only repo has no rulebook block', () => {
+  const { spawnSync } = require('node:child_process');
+  const CLI = path.join(__dirname, '..', 'bin', 'agentkit.cjs');
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(
+    path.join(dir, 'agentkit.config.json'),
+    JSON.stringify({ skills: false, commands: false, agents: false })
+  );
+  const doctor = spawnSync('node', [CLI, 'doctor'], { encoding: 'utf8', cwd: dir });
+  assert.match(doctor.stdout, /no rulebook carries the agentkit block/);
+});
+
 test('rulebookStatus: ok after wire, missing before, stale after asset change', () => {
   const dir = tmp();
   assert.strictEqual(rulebookStatus(dir, {}, ASSETS).missing, true);
