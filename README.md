@@ -10,8 +10,8 @@ The repo is public — installs need no auth anywhere (dev laptops without SSH, 
 
 ```bash
 nvm use
-npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"   # caret pins like any npm dep; pnpm: add -D -w · yarn: add -D
-npx agentkit init --tool claude
+npm i -D "github:Arches-Corporation/AgentKit#semver:^2.6.0"   # caret pins like any npm dep; pnpm: add -D -w · yarn: add -D
+npx agentkit init --tool claude    # add --project <repo-name> if a pack exists for your reporepo_name>
 npx agentkit sync      # install managed skills/commands/agents (set skills.vars first — see docs/skills.md)
 npx agentkit doctor
 ```

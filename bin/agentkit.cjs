@@ -188,7 +188,22 @@ function cmdSync(args) {
     process.exit(1);
   }
   if (!rendered.length) {
+    // Guardrails-only configuration (all assets excluded / none in the kit).
+    // The rulebook block still matters — it is how agents learn the
+    // enforcement layer exists — so auto-wiring must not be skipped.
     process.stdout.write('no assets to sync (none in kit for this configuration)\n');
+    if (checkOnly) {
+      const rb = rulebookStatus(root, cfg, rendered);
+      if (!rb.ok) {
+        process.stdout.write('sync --check: rulebook agentkit block missing or stale\n');
+        process.exit(1);
+      }
+      process.stdout.write('sync --check: clean (rulebook block current)\n');
+      process.exit(0);
+    }
+    const wired = wireRulebooks(root, cfg, rendered);
+    if (wired.seeded) process.stdout.write(`auto-wired: seeded ${wired.seeded} with the agentkit block (no rulebook existed)\n`);
+    else if (wired.written.length) process.stdout.write(`auto-wired agentkit block into: ${wired.written.join(', ')}\n`);
     process.exit(0);
   }
 
@@ -378,7 +393,9 @@ function runDoctor(args = []) {
       }
       if (assetsOk) good(`${assetsCheck.rendered.length} managed assets in sync`);
     }
-    if (!assetsCheck.errors.length && assetsCheck.rendered.length) {
+    // Checked even with zero rendered assets — a guardrails-only repo still
+    // needs the block (it carries the guardrail note).
+    if (!assetsCheck.errors.length) {
       const rb = rulebookStatus(root, cfg, assetsCheck.rendered);
       if (rb.missing) warn('no rulebook carries the agentkit block — run: agentkit sync (seeds CLAUDE.md)');
       else if (!rb.ok) warn(`agentkit block out of date in: ${rb.stale.join(', ')} (run: agentkit sync)`);
