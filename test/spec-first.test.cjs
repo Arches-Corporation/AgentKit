@@ -118,3 +118,75 @@ test('spec-first: non-commit command ignored', () => {
   const event = Object.assign(commitEvent(repo), { command: 'git status' });
   assert.strictEqual(specFirst.check(event, ctxFor(repo)), null);
 });
+
+// --- lane-aware requirements ------------------------------------------------
+
+const LANES = {
+  full: { triggers: ['db/migrate/', '_controller\\.js$'], requires: ['proposal.md', 'design.md', 'tasks.md'] },
+  default: { requires: ['spec.md'] },
+};
+
+function writeSpec(repo, ticket, files) {
+  const dir = path.join(repo.dir, 'docs/specs/features', ticket);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of files) fs.writeFileSync(path.join(dir, f), '# ' + f);
+}
+
+test('spec-first lanes: migration staged → full lane requires the trio', () => {
+  const repo = gitRepo('feat/EKB-10-x');
+  stageCode(repo, 'src/db/migrate/2026_add.js');
+  writeSpec(repo, 'EKB-10', ['spec.md']); // light spec only — insufficient for full lane
+  const ctx = ctxFor(repo, { lanes: LANES });
+  const r = specFirst.check(commitEvent(repo), ctx);
+  assert.ok(r && /full lane/.test(r.block), 'expected full-lane block');
+  assert.match(r.block, /missing: proposal\.md, design\.md, tasks\.md/);
+});
+
+test('spec-first lanes: full lane satisfied by the trio', () => {
+  const repo = gitRepo('feat/EKB-11-x');
+  stageCode(repo, 'src/db/migrate/2026_add.js');
+  writeSpec(repo, 'EKB-11', ['proposal.md', 'design.md', 'tasks.md']);
+  const ctx = ctxFor(repo, { lanes: LANES });
+  assert.strictEqual(specFirst.check(commitEvent(repo), ctx), null);
+});
+
+test('spec-first lanes: view-only change → default lane needs only spec.md', () => {
+  const repo = gitRepo('feat/EKB-12-x');
+  stageCode(repo, 'src/components/View.js');
+  writeSpec(repo, 'EKB-12', ['spec.md']);
+  const ctx = ctxFor(repo, { lanes: LANES });
+  assert.strictEqual(specFirst.check(commitEvent(repo), ctx), null);
+});
+
+test('spec-first lanes: default lane missing spec.md is blocked', () => {
+  const repo = gitRepo('feat/EKB-13-x');
+  stageCode(repo, 'src/components/View.js');
+  writeSpec(repo, 'EKB-13', ['notes.md']);
+  const ctx = ctxFor(repo, { lanes: LANES });
+  const r = specFirst.check(commitEvent(repo), ctx);
+  assert.ok(r && /default lane/.test(r.block));
+  assert.match(r.block, /missing: spec\.md/);
+});
+
+test('spec-first lanes: mixed staged set with any full trigger → full lane', () => {
+  const repo = gitRepo('feat/EKB-14-x');
+  stageCode(repo, 'src/components/View.js');
+  stageCode(repo, 'src/db/migrate/2026_add.js');
+  writeSpec(repo, 'EKB-14', ['spec.md']);
+  const ctx = ctxFor(repo, { lanes: LANES });
+  const r = specFirst.check(commitEvent(repo), ctx);
+  assert.ok(r && /full lane/.test(r.block));
+});
+
+test('spec-first lanes: no lanes config keeps legacy any-.md behavior', () => {
+  const repo = gitRepo('feat/EKB-15-x');
+  stageCode(repo, 'src/db/migrate/2026_add.js');
+  writeSpec(repo, 'EKB-15', ['anything.md']);
+  assert.strictEqual(specFirst.check(commitEvent(repo), ctxFor(repo)), null);
+});
+
+test('classifyLane: returns null without lanes, classifies with them', () => {
+  assert.strictEqual(specFirst.classifyLane(null, ['src/db/migrate/x.js']), null);
+  assert.strictEqual(specFirst.classifyLane(LANES, ['src/db/migrate/x.js']).name, 'full');
+  assert.strictEqual(specFirst.classifyLane(LANES, ['src/x.js']).name, 'default');
+});

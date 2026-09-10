@@ -81,6 +81,23 @@ const TYPES = {
     if (typeof value === 'string') return null;
     return TYPES.stringArray(value) === null ? null : 'must be a string or an array of strings';
   },
+  lanes(value) {
+    if (value === null) return null;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return 'must be an object of {laneName: {triggers?, requires}} or null';
+    for (const [name, lane] of Object.entries(value)) {
+      if (!lane || typeof lane !== 'object' || Array.isArray(lane)) return `.${name} must be an object`;
+      for (const key of Object.keys(lane)) {
+        if (!['triggers', 'requires'].includes(key)) return `.${name}.${key}: unknown key (known: triggers, requires)`;
+      }
+      if (name !== 'default' && lane.triggers !== undefined) {
+        const err = TYPES.regexArray(lane.triggers);
+        if (err) return `.${name}.triggers ${err}`;
+      }
+      const rErr = TYPES.stringArray(lane.requires);
+      if (rErr) return `.${name}.requires ${rErr}`;
+    }
+    return null;
+  },
 };
 
 const BUILT_IN_OPTION_SPECS = {
@@ -92,6 +109,8 @@ const BUILT_IN_OPTION_SPECS = {
     specDirTemplate: 'string',
     requireSpecDir: 'boolean',
     hintText: 'string',
+    lanes: 'lanes',
+    ticketUrlTemplate: 'string',
   },
   'privacy-block': { sensitive: 'regexArray', safe: 'regexArray' },
   'secret-output': { extraPatterns: 'patternObjArray' },

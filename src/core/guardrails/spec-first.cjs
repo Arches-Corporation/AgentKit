@@ -13,10 +13,35 @@ const DEFAULTS = {
   specDirTemplate: 'docs/specs/features/{ticket}',
   requireSpecDir: true,
   hintText: '',
+  // Lanes gate the *shape* of the spec (which files must exist) by what the
+  // change touches. Omit to keep the legacy behavior: any single `.md` passes.
+  // First lane whose `triggers` match a staged file wins; unmatched → `default`.
+  lanes: null,
 };
 
 function git(args, cwd) {
   return execSync(`git ${args}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+}
+
+// Which lane does this staged set fall in, and why. Returns null when lanes
+// aren't configured (caller keeps the any-.md behavior). Shared with the
+// `agentkit spec` scaffold so classification has one source of truth.
+function classifyLane(lanes, stagedFiles) {
+  if (!lanes || typeof lanes !== 'object') return null;
+  const entries = Object.entries(lanes).filter(([name]) => name !== 'default');
+  for (const [name, lane] of entries) {
+    const triggers = (lane && Array.isArray(lane.triggers)) ? lane.triggers.map((t) => new RegExp(t)) : [];
+    const hit = stagedFiles.find((f) => triggers.some((re) => re.test(f)));
+    if (hit) {
+      return { name, requires: requiresOf(lane), trigger: hit };
+    }
+  }
+  const def = lanes.default || {};
+  return { name: 'default', requires: requiresOf(def), trigger: null };
+}
+
+function requiresOf(lane) {
+  return (lane && Array.isArray(lane.requires)) ? lane.requires.filter((f) => typeof f === 'string' && f) : [];
 }
 
 function check(event, ctx) {
@@ -60,16 +85,38 @@ function check(event, ctx) {
 
   if (!opts.requireSpecDir) return null;
 
-  const specDir = path.join(repoRoot, opts.specDirTemplate.replace('{ticket}', ticket));
-  let hasSpec = false;
-  try { hasSpec = fs.readdirSync(specDir).some((f) => f.endsWith('.md')); } catch { hasSpec = false; }
+  const specDirRel = opts.specDirTemplate.replace('{ticket}', ticket);
+  const specDir = path.join(repoRoot, specDirRel);
+  let present = [];
+  try { present = fs.readdirSync(specDir); } catch { present = []; }
 
-  if (!hasSpec) {
+  const lane = classifyLane(opts.lanes, staged);
+
+  // Lane-aware: the change's lane dictates exactly which files must exist.
+  if (lane && lane.requires.length) {
+    const missing = lane.requires.filter((f) => !present.includes(f));
+    if (missing.length) {
+      const why = lane.trigger
+        ? `${lane.name} lane (triggered by \`${lane.trigger}\`)`
+        : `${lane.name} lane`;
+      return {
+        block:
+          `BLOCKED: spec-first — product code for ${ticket} staged (${sample}) is a ${why}, ` +
+          `which requires ${lane.requires.join(', ')} in ${specDirRel}/ — missing: ${missing.join(', ')}. ` +
+          `Scaffold with \`npx agentkit spec ${ticket}\`, fill it in, and stage it.${hint} ` +
+          `Or (if genuinely exempt) ${markerHint}`,
+      };
+    }
+    return null;
+  }
+
+  // Legacy (no lanes configured): any single `.md` satisfies the gate.
+  if (!present.some((f) => f.endsWith('.md'))) {
     return {
       block:
         `BLOCKED: spec-first — product code for ${ticket} staged (${sample}) but ` +
-        `${opts.specDirTemplate.replace('{ticket}', ticket)}/ has no spec. Rule: no code without ` +
-        `a spec (write it first).${hint} Stage the spec in this commit, or (if genuinely exempt) ${markerHint}`,
+        `${specDirRel}/ has no spec. Rule: no code without a spec (write it first).${hint} ` +
+        `Scaffold with \`npx agentkit spec ${ticket}\` and stage it, or (if genuinely exempt) ${markerHint}`,
     };
   }
 
@@ -83,4 +130,5 @@ module.exports = {
   failClosed: false,
   defaults: DEFAULTS,
   check,
+  classifyLane,
 };

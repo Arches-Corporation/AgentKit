@@ -192,9 +192,9 @@ test('kinds: advisor renders org vars, defaults apply without them', () => {
   assert.match(fallback.content, /Arches decision advisor/);
 });
 
-test('kinds: no pack -> advisor only, no commands', () => {
+test('kinds: no pack -> advisor + shared spec command only', () => {
   const assets = skillsLib.resolveAssets({}, null);
-  assert.strictEqual(assets.filter((a) => a.kind === 'command').length, 0);
+  assert.deepStrictEqual(assets.filter((a) => a.kind === 'command').map((a) => a.name), ['spec']);
   assert.deepStrictEqual(assets.filter((a) => a.kind === 'agent').map((a) => a.name), ['advisor']);
 });
 
