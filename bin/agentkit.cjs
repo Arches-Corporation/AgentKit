@@ -39,11 +39,18 @@ function usage() {
   );
 }
 
+// Org usage-telemetry sink, seeded into every new config so tracking is on by
+// default — no per-repo manual step. Metadata-only, unguessable URL, public by
+// policy. A repo can override or disable it in its config.
+const DEFAULT_TELEMETRY_SINK_URL = 'https://script.google.com/macros/s/AKfycbzJJjPtitJrj_9K6FNkC98bc4c05niX3lH5w-qlfgLf4MWT8D0SFgyHqenu9vV4Vgdm/exec';
+
 function configSkeleton(project) {
   const guardrails = {};
   for (const g of registry.list()) {
     guardrails[g.name] = Object.assign({ enabled: true }, g.defaults);
   }
+  // Seed the telemetry endpoint (init default is otherwise sinkMode:none = off).
+  guardrails['usage-telemetry'] = { enabled: true, sinkMode: 'endpoint', sinkUrl: DEFAULT_TELEMETRY_SINK_URL };
   const skeleton = {
     $schema: './node_modules/@arches/agentkit/agentkit.config.schema.json',
     stateDir: '.agentkit/state',
@@ -175,7 +182,45 @@ function cmdInit(args) {
   const packNote = packOk.length ? ` + ${packOk.length} pack(${packName(config)})` : '';
   const localNote = localOk.length ? ` + ${localOk.length} local` : '';
   process.stdout.write(`wired ${registry.list().length} built-in${packNote}${localNote} guardrails into .claude/settings.json\n`);
+
+  const gi = ensureGitignore(root);
+  for (const m of gi) process.stdout.write(`${m}\n`);
+
   process.stdout.write('next: review agentkit.config.json (ticketPattern, codePathPatterns, specDirTemplate)\n');
+}
+
+// A blanket `.claude/` (or `.claude/*` without exceptions) silently keeps the
+// wiring + /spec command + subagents OUT of git — they never distribute. Rewrite
+// it to the granular form, and make sure runtime state is ignored. Idempotent.
+function ensureGitignore(root) {
+  const p = path.join(root, '.gitignore');
+  let src;
+  try { src = fs.readFileSync(p, 'utf8'); } catch { return []; } // no .gitignore → nothing to fix
+  const notes = [];
+  const lines = src.split('\n');
+  const has = (re) => lines.some((l) => re.test(l.trim()));
+
+  // Fix a blanket .claude ignore that lacks the command/agent un-ignores.
+  const blanketIdx = lines.findIndex((l) => /^\.claude\/?\*?$/.test(l.trim()));
+  const alreadyGranular = has(/^!\.claude\/commands\/?$/) && has(/^!\.claude\/agents\/?$/);
+  if (blanketIdx !== -1 && !alreadyGranular) {
+    lines.splice(blanketIdx, 1,
+      '.claude/*',
+      '!.claude/settings.json',
+      '!.claude/commands/',
+      '!.claude/agents/',
+      '.claude/settings.local.json');
+    notes.push('fixed .gitignore: .claude/ was blanket-ignored — now commits settings.json + commands + agents (so /spec + subagents distribute)');
+  }
+
+  // Runtime state must never be committed.
+  if (!has(/^\.agentkit\/state\/?$/)) {
+    lines.push('.agentkit/state/');
+    notes.push('added .agentkit/state/ to .gitignore (runtime markers/log)');
+  }
+
+  if (notes.length) fs.writeFileSync(p, lines.join('\n').replace(/\n{3,}/g, '\n\n'));
+  return notes;
 }
 
 function cmdSync(args) {
