@@ -32,6 +32,7 @@ function usage() {
     '  approve [marker]     USER-ONLY: grant the one-shot approval a guardrail asked for (default marker: git-approved)\n' +
     '  trust                Trust the current content of repo-local guardrails (.agentkit/guardrails/*.cjs) so they may run\n' +
     '  spec <TICKET> [--full|--light]  Scaffold the spec dir for a ticket (lane auto-detected from staged files)\n' +
+    '  spec-verify <TICKET>  Run each Acceptance Criterion\'s linked {test:…}; assert every AC is proven (Tier 3)\n' +
     '  uninstall [--purge]  Remove synced assets, unwire hooks, delete state; --purge also removes config + .agentkit/\n' +
     '  list                 List guardrails and synced assets: built-in, project pack, local\n' +
     '  hook <name>          Run one guardrail as a Claude hook (stdin JSON)\n'
@@ -763,6 +764,54 @@ const specFirst = require('../src/core/guardrails/spec-first.cjs');
 // Scaffold the spec dir for a ticket, in the lane the change falls in.
 // Lane: explicit --full/--light, else auto-detected from staged/changed files
 // using the SAME classifier the spec-first guardrail uses (one source of truth).
+// Tier 3 — run each AC's linked test; assert every AC is proven. Spec-driven's
+// last mile: an AC with `{test: …}` becomes executable; unlinked ACs are flagged.
+function cmdSpecVerify(args) {
+  const ticket = (args.find((a) => !a.startsWith('--')) || '').toUpperCase();
+  if (!TICKET_ARG_RE.test(ticket)) {
+    process.stderr.write('agentkit spec-verify: pass a ticket id, e.g. `agentkit spec-verify EKB-1234`\n');
+    process.exit(1);
+  }
+  const root = findRepoRoot(process.cwd());
+  const cfg = loadConfig(root);
+  const sfOpts = optionsFor(cfg, 'spec-first');
+  const scOpts = optionsFor(cfg, 'spec-conformance');
+  const specDirTemplate = scOpts.specDirTemplate || sfOpts.specDirTemplate || 'docs/specs/features/{ticket}';
+  const specDirRel = specDirTemplate.replace('{ticket}', ticket);
+  const testTemplate = scOpts.testCommand;
+
+  const acs = require('../src/core/lib/pr.cjs').specAcs(root, specDirRel);
+  if (!acs.length) {
+    process.stderr.write(`agentkit spec-verify: no Acceptance Criteria found in ${specDirRel}/\n`);
+    process.exit(1);
+  }
+  if (!testTemplate) {
+    process.stderr.write('agentkit spec-verify: set spec-conformance.testCommand (a template with {test}) in agentkit.config.json\n');
+    process.exit(1);
+  }
+
+  const linked = acs.filter((a) => a.test);
+  const unlinked = acs.filter((a) => !a.test);
+  let failures = 0;
+  for (const ac of linked) {
+    const cmd = testTemplate.replace('{test}', ac.test);
+    process.stdout.write(`run  ${ac.text}\n     → ${cmd}\n`);
+    try {
+      require('child_process').execSync(cmd, { cwd: root, stdio: ['ignore', 'ignore', 'pipe'] });
+      process.stdout.write('     ok\n');
+    } catch {
+      failures += 1;
+      process.stdout.write('     FAIL\n');
+    }
+  }
+  for (const ac of unlinked) process.stdout.write(`warn unlinked AC (no {test:…}): ${ac.text}\n`);
+
+  const ok = failures === 0 && unlinked.length === 0;
+  process.stdout.write(`spec-verify ${ticket}: ${linked.length - failures}/${acs.length} ACs proven` +
+    `${failures ? `, ${failures} failing` : ''}${unlinked.length ? `, ${unlinked.length} unlinked` : ''}\n`);
+  process.exit(ok ? 0 : 1);
+}
+
 function cmdSpec(args) {
   const ticket = (args.find((a) => !a.startsWith('--')) || '').toUpperCase();
   if (!TICKET_ARG_RE.test(ticket)) {
@@ -902,6 +951,7 @@ function main() {
     case 'approve': return cmdApprove(args);
     case 'trust': return cmdTrust();
     case 'spec': return cmdSpec(args);
+    case 'spec-verify': return cmdSpecVerify(args);
     case 'new': return cmdNew(args);
     case 'uninstall': return cmdUninstall(args);
     case 'list': return cmdList();
