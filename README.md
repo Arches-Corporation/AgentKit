@@ -41,7 +41,7 @@ Every block message tells the agent the compliant next step. Escape hatches are 
 
 ## Skills, commands, agents (synced assets)
 
-Templated agent playbooks distributed by `agentkit sync` in three kinds — **skills** (`.agents/skills/`), **slash commands** (`.claude/commands/`), **subagents** (`.claude/agents/`). Shared tier: skills deep-review, spec-check, pr-review, security-audit, performance-optimization, db-migration, jira-ticket, sentry-investigator + agent advisor. ekb pack: skills route, design-check, attach-pr-recording, e2e-testing · commands pr, ekb-up, verify-all · agents conductor, fe-agent, be-agent. Repo supplies `skills.vars` (single pool for all kinds); unresolved placeholders fail the sync; local edits to managed assets fail `doctor`; per-kind opt-out via `skills.exclude` / `commands.exclude` / `agents.exclude`. Full model: [docs/skills.md](docs/skills.md). `sync` also **auto-wires** a marker-fenced block into your rulebook (CLAUDE.md/AGENTS.md/GEMINI.md/.cursor) so agents actually discover the skills — seeds CLAUDE.md if none exists, no hand-editing: [docs/rulebook-injection.md](docs/rulebook-injection.md).
+Templated agent playbooks distributed by `agentkit sync` in three kinds — **skills** (`.agents/skills/`), **slash commands** (`.claude/commands/`), **subagents** (`.claude/agents/`). Shared tier: skills deep-review, spec-check, pr-review, security-audit, performance-optimization, db-migration, jira-ticket, sentry-investigator + agent advisor + command `/spec` (scaffold a ticket's spec dir, lane-aware). ekb pack: skills route, design-check, attach-pr-recording, e2e-testing · commands pr, ekb-up, verify-all · agents conductor, fe-agent, be-agent. Repo supplies `skills.vars` (single pool for all kinds); unresolved placeholders fail the sync; local edits to managed assets fail `doctor`; per-kind opt-out via `skills.exclude` / `commands.exclude` / `agents.exclude`. Full model: [docs/skills.md](docs/skills.md). `sync` also **auto-wires** a marker-fenced block into your rulebook (CLAUDE.md/AGENTS.md/GEMINI.md/.cursor) so agents actually discover the skills — seeds CLAUDE.md if none exists, no hand-editing: [docs/rulebook-injection.md](docs/rulebook-injection.md).
 
 ## Configuration
 
@@ -60,6 +60,7 @@ agentkit stats [--json]       aggregate the guardrail log — events, top block 
 agentkit report [--json|--csv] [--since <days>] [--export]   usage rollup per user/day; --export ships it to the configured sink
 agentkit approve [marker]     USER-ONLY: grant a one-shot approval (default git-approved) — agents are blocked from running it
 agentkit trust                trust the current repo-local guardrails so they may execute (hashes stored outside the repo)
+agentkit spec <TICKET> [--full|--light]   scaffold the ticket's spec dir in the lane the change falls in (auto-detected)
 agentkit new <kind> <name>    scaffold a kit asset (guardrail|skill|command|agent) — kit repo only
 agentkit uninstall [--purge]  remove synced assets, unwire hooks, delete state (then npm uninstall)
 agentkit list                 list guardrails and synced assets with their tiers

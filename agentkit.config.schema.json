@@ -97,6 +97,40 @@
             },
             "hintText": {
               "type": "string"
+            },
+            "ticketUrlTemplate": {
+              "type": "string",
+              "description": "URL template with {ticket}, used by `agentkit spec` to fill the ticket link."
+            },
+            "lanes": {
+              "description": "Lane-aware spec requirements. First lane whose triggers match a staged file wins; unmatched changes fall to `default`. Omit for legacy any-.md behavior.",
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "triggers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Path regexes; a staged file matching one puts the change in this lane. Ignored for the `default` lane."
+                  },
+                  "requires": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Spec files that must exist in the ticket dir for this lane."
+                  }
+                },
+                "required": [
+                  "requires"
+                ]
+              }
             }
           }
         },
@@ -232,7 +266,12 @@
             },
             "sinkMode": {
               "type": "string",
-              "enum": ["none", "file", "endpoint", "otel"],
+              "enum": [
+                "none",
+                "file",
+                "endpoint",
+                "otel"
+              ],
               "description": "Where usage is exported: none (local only), file (write JSON into sinkPath), endpoint (POST rollup JSON to sinkUrl), otel (drain per-event OTLP/HTTP logs to otelEndpoint)."
             },
             "sinkPath": {
@@ -253,7 +292,9 @@
             },
             "otelHeaders": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Extra HTTP headers for otel mode as \"Key: Value\" strings (e.g. collector auth). https required if an Authorization header is present. Prefer otelAuthTokenEnv for the credential — keep secrets out of config."
             },
             "otelAuthTokenEnv": {

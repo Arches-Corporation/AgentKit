@@ -31,6 +31,7 @@ function usage() {
     '  new <kind> <name> [--pack <pack>]  Scaffold a kit asset (guardrail|skill|command|agent) — AgentKit repo only\n' +
     '  approve [marker]     USER-ONLY: grant the one-shot approval a guardrail asked for (default marker: git-approved)\n' +
     '  trust                Trust the current content of repo-local guardrails (.agentkit/guardrails/*.cjs) so they may run\n' +
+    '  spec <TICKET> [--full|--light]  Scaffold the spec dir for a ticket (lane auto-detected from staged files)\n' +
     '  uninstall [--purge]  Remove synced assets, unwire hooks, delete state; --purge also removes config + .agentkit/\n' +
     '  list                 List guardrails and synced assets: built-in, project pack, local\n' +
     '  hook <name>          Run one guardrail as a Claude hook (stdin JSON)\n'
@@ -746,6 +747,88 @@ function cmdTrust() {
   process.stdout.write(`hashes recorded in ${storePath} — re-run after any edit\n`);
 }
 
+const TICKET_ARG_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
+const KIT_TEMPLATE_ROOT = path.join(__dirname, '..', 'templates', 'spec');
+const specFirst = require('../src/core/guardrails/spec-first.cjs');
+
+// Scaffold the spec dir for a ticket, in the lane the change falls in.
+// Lane: explicit --full/--light, else auto-detected from staged/changed files
+// using the SAME classifier the spec-first guardrail uses (one source of truth).
+function cmdSpec(args) {
+  const ticket = (args.find((a) => !a.startsWith('--')) || '').toUpperCase();
+  if (!TICKET_ARG_RE.test(ticket)) {
+    process.stderr.write('agentkit spec: pass a ticket id, e.g. `agentkit spec EKB-1234` [--full|--light]\n');
+    process.exit(1);
+  }
+  const root = findRepoRoot(process.cwd());
+  const cfg = loadConfig(root);
+  const opts = optionsFor(cfg, 'spec-first');
+  const specDirTemplate = opts.specDirTemplate || 'docs/specs/features/{ticket}';
+  const specDirRel = specDirTemplate.replace('{ticket}', ticket);
+  const specDir = path.join(root, specDirRel);
+
+  let laneName;
+  if (args.includes('--full')) laneName = 'full';
+  else if (args.includes('--light')) laneName = 'light';
+  else laneName = autoDetectLane(root, opts);
+
+  const files = laneFiles(laneName);
+  if (!files.length) {
+    process.stderr.write(`agentkit spec: no template for lane "${laneName}" (available: light, full)\n`);
+    process.exit(1);
+  }
+
+  const vars = {
+    ticket,
+    ticketUrl: renderTicketUrl(opts, ticket),
+    specDirDisplay: specDirRel,
+  };
+
+  fs.mkdirSync(specDir, { recursive: true });
+  const created = [];
+  const skipped = [];
+  for (const f of files) {
+    const dest = path.join(specDir, f);
+    if (fs.existsSync(dest)) { skipped.push(f); continue; }
+    const tpl = fs.readFileSync(path.join(KIT_TEMPLATE_ROOT, laneName, f), 'utf8');
+    fs.writeFileSync(dest, tpl.replace(/\{\{(\w+)\}\}/g, (whole, k) => (vars[k] !== undefined ? vars[k] : whole)));
+    created.push(f);
+  }
+  process.stdout.write(`spec ${ticket}: ${laneName} lane → ${specDirRel}/\n`);
+  if (created.length) process.stdout.write(`  created: ${created.join(', ')}\n`);
+  if (skipped.length) process.stdout.write(`  kept (already present): ${skipped.join(', ')}\n`);
+  process.stdout.write('  fill in the What/Why/AC, then stage it with your change.\n');
+}
+
+function laneFiles(laneName) {
+  try {
+    return fs.readdirSync(path.join(KIT_TEMPLATE_ROOT, laneName)).filter((f) => f.endsWith('.md')).sort();
+  } catch {
+    return [];
+  }
+}
+
+function autoDetectLane(root, opts) {
+  let staged = [];
+  try {
+    staged = require('child_process')
+      .execSync('git diff --cached --name-only', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\n').filter(Boolean);
+  } catch { /* not a git repo / no git */ }
+  if (!staged.length) return 'light';
+  const lane = specFirst.classifyLane(opts.lanes, staged);
+  // classifyLane returns null when lanes aren't configured — default to light.
+  if (!lane) return 'light';
+  return lane.name === 'default' ? 'light' : lane.name;
+}
+
+function renderTicketUrl(opts, ticket) {
+  if (typeof opts.ticketUrlTemplate === 'string' && opts.ticketUrlTemplate) {
+    return opts.ticketUrlTemplate.replace('{ticket}', ticket);
+  }
+  return `<link to ${ticket}>`;
+}
+
 function cmdUninstall(args) {
   const purge = args.includes('--purge');
   const root = findRepoRoot(process.cwd());
@@ -809,6 +892,7 @@ function main() {
     case 'report': return cmdReport(args);
     case 'approve': return cmdApprove(args);
     case 'trust': return cmdTrust();
+    case 'spec': return cmdSpec(args);
     case 'new': return cmdNew(args);
     case 'uninstall': return cmdUninstall(args);
     case 'list': return cmdList();
