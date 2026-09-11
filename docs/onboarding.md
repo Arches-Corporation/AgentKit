@@ -1,148 +1,161 @@
 # Onboarding a repo
 
-Five minutes per repo. Works for any shape — JS monorepo, pure Rails, anything. Node ≥ 20 via any version manager (`nvm use`, asdf `.tool-versions`, …).
+Five minutes. Works for any shape — JS monorepo, pure Rails, anything. Node ≥ 20 (`nvm use`, asdf, …).
+
+**Lead does steps 1–7 once per repo. Teammates then just `git pull && install` (see [For the team](#for-the-team)).**
+
+---
 
 ## 1. Install
 
-**Use the repo's own package manager** — check `packageManager` in package.json or the lockfile (`package-lock.json` = npm, `pnpm-lock.yaml` = pnpm, `yarn.lock` = yarn). Mixing managers corrupts the lockfile or fails on peer deps.
+**Use the repo's own package manager** (check `packageManager` / the lockfile — mixing corrupts it). Public repo, no auth needed anywhere.
 
 ```bash
 cd <repo>
-
-# pure Rails / no package.json yet:
-npm init -y
-# then set "private": true and strip noise fields
-
-# npm repo:
-npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"
+# npm:
+npm i  -D "github:Arches-Corporation/AgentKit#semver:^2.8.0"
 # pnpm workspace (-w = workspace root):
-pnpm add -D -w "github:Arches-Corporation/AgentKit#semver:^2.3.1"
+pnpm add -D -w "github:Arches-Corporation/AgentKit#semver:^2.8.0"
 # yarn:
-yarn add -D "Arches-Corporation/AgentKit#semver:^2.3.1"
+yarn add -D "Arches-Corporation/AgentKit#semver:^2.8.0"
+# pure Rails / no package.json: `npm init -y`, set "private": true, then the npm line above
 ```
 
-The repo is public — no auth needed for installs (dev or CI). `#semver:^X.Y.Z` behaves like any npm caret: newest matching tag at install, lockfile freezes the exact commit for the team, `npm update` pulls newer minors/patches on request, a new major never auto-installs. Use `#vX.Y.Z` for an exact pin, or no ref to float `main`.
+`#semver:^X.Y.Z` = newest matching tag at install, frozen in the lockfile for the team; `npm update @arches/agentkit` pulls newer minors/patches on request; a new major never auto-installs.
 
 ## 2. Wire
 
 ```bash
-npx agentkit init --tool claude
+npx agentkit init --tool claude          # add --project <RepoName> if a pack exists for your repo
 ```
 
-Writes a complete `agentkit.config.json` (every guardrail with its defaults, `$schema` pointer for editor autocomplete) and wires the guardrails into `.claude/settings.json`. Idempotent; existing settings are merged, never overwritten.
+Unsure whether a pack exists? Omit `--project` — it's safe to add later. Packs live in the kit under `src/projects/<RepoName>/`; ask, or add it once you know.
+
+Writes a full `agentkit.config.json` (every guardrail + defaults, `$schema` pointer) and wires the guardrails into `.claude/settings.json`. Idempotent — existing settings merged, never overwritten. Also using Cursor? `npx agentkit init --tool cursor`.
 
 ## 3. Tune `agentkit.config.json`
 
-Hand-edit the generated file — only the deltas from defaults. Usually that's `spec-first`:
+Edit only the deltas. Two things matter most:
+
+**`spec-first`** — what counts as product code, and the spec lanes:
 
 | Repo style | Config |
 |---|---|
-| Ticket-keyed spec dirs (EKB: `docs/specs/features/EKB-1234/`) | `ticketPattern: "EKB-\\d+"`, `specDirTemplate: "docs/specs/features/{ticket}"` |
-| Spec tool with slug dirs (openspec: `openspec/changes/<slug>/`) | `ticketPattern: "AIS2?-\\d+"`, `requireSpecDir: false` — ticket-in-branch enforced, spec layout left to the spec tool |
+| Ticket-keyed spec dirs (EKB) | `ticketPattern: "EKB-\\d+"`, `codePathPatterns: ["^(apps/web/src/\|apps/api/(app\|lib\|db)/)"]`, `specDirTemplate: "docs/specs/features/{ticket}"` |
+| Slug-dir spec tool (openspec) | `ticketPattern: "…"`, `requireSpecDir: false` — ticket-in-branch only |
 | No spec convention | `"spec-first": { "enabled": false }` |
 
-Set `codePathPatterns` to what counts as product code: Rails `["^(app|lib|db)/"]`, monorepo per app dir, JS `["^src/"]`. Disable what doesn't apply (e.g. `db-guard` in a pure frontend).
+Set `codePathPatterns` to your product code (Rails `["^(app|lib|db)/"]`, JS `["^src/"]`, monorepo per app dir).
 
-Managed skills/commands/agents are **on by default — keep them on**: supply `skills.vars` (see [skills.md](skills.md)) and `exclude` only what genuinely doesn't fit, with a reason (wrong stack, tool not used). Guardrails-only (`"skills": false` etc.) is the explicit opt-out for repos that keep their own playbook system.
+**`lanes`** (enforced spec shape — migrations/endpoints need the Full trio, not a one-line spec):
 
-## 4. Check the gitignore
+```jsonc
+"lanes": {
+  "full":    { "triggers": ["db/migrate/", "config/routes", "_controller\\.rb$", "app/services/"],
+               "requires": ["proposal.md", "design.md", "tasks.md"] },
+  "default": { "requires": ["spec.md"] }
+}
+```
 
-**A blanket `.claude/` gitignore line silently keeps the wiring out of git** — it works on your machine and nobody else ever gets guardrails. Use granular entries:
+Omit `lanes` to keep the legacy any-`.md` gate. Add `"ticketUrlTemplate": "https://<jira>/browse/{ticket}"` so `/spec` fills the link. Scaffold specs with `/spec <TICKET>` (auto-detects the lane) — see [spec-first.md](guardrails/spec-first.md).
+
+Skills/commands/agents are **on by default — keep them on**: supply `skills.vars` ([skills.md](skills.md)), `exclude` only what genuinely doesn't fit. `"skills": false` is the opt-out for guardrails-only repos.
+
+> **Skills with unset `{{vars}}` skip gracefully** — sync installs everything that resolves + the rulebook block, and warns (never aborts) on the rest. So a fresh repo works immediately; you refine later. On a **frontend** repo the backend skills (`performance-optimization`, `security-audit`, `sentry-investigator` — they need `beDir`/`sentryProjects`) skip until you either set those vars or `exclude` them; a **backend** repo is the mirror. `npx agentkit sync` and `doctor` name every skipped skill and its missing var. `exclude` the ones that don't fit your stack to silence the warnings.
+
+## 4. Telemetry (org usage tracking)
+
+Route the kit's usage log to the shared Google Sheet. Add under `guardrails`:
+
+```json
+"usage-telemetry": {
+  "enabled": true,
+  "sinkMode": "endpoint",
+  "sinkUrl": "https://script.google.com/macros/s/AKfycbzJJjPtitJrj_9K6FNkC98bc4c05niX3lH5w-qlfgLf4MWT8D0SFgyHqenu9vV4Vgdm/exec"
+}
+```
+
+Metadata only (session/skill/agent/command names + guardrail decisions — never prompt or code content), one POST per engineer per repo per day, fail-open. No token, no env, no per-engineer setup — the URL ships via git. Details + the Sheet setup: [telemetry-sink-apps-script.md](telemetry-sink-apps-script.md).
+
+## 5. Fix the gitignore
+
+**A blanket `.claude/` ignore silently keeps the wiring — and `/spec`, subagents — out of git.** Commit the shared wiring + synced assets; ignore only local/personal + runtime state:
 
 ```gitignore
 .claude/*
 !.claude/settings.json
+!.claude/commands/
+!.claude/agents/
 .claude/settings.local.json
 .agentkit/state/
 ```
 
-Gitignore `.agentkit/state/` only — never the whole `.agentkit/` dir, or local guardrails silently stop being shared.
+Ignore `.agentkit/state/` **only** — never the whole `.agentkit/` (that hides local guardrails). If your repo ignores `CLAUDE.md` as personal, keep a committed **`AGENTS.md`** as the shared rulebook instead (auto-wired in step 6, read by every tool).
 
-## 5. Sync and prove
-
-```bash
-npx agentkit sync      # installs managed assets AND auto-wires your rulebook (CLAUDE.md/AGENTS.md/GEMINI.md/.cursor); seeds CLAUDE.md if none exists
-npx agentkit doctor    # strict: config keys/types/regexes, wiring, asset drift
-npx agentkit verify    # behavioral proof — every enabled guardrail actually blocks its fixture
-```
-
-All green = done.
-
-## 6. Commit + PR
-
-```
-.nvmrc                       (if the repo uses nvm)
-package.json + lockfile
-agentkit.config.json
-.gitignore
-.claude/settings.json
-.agentkit/guardrails/        (local guardrails — committed source)
-+ synced assets, if any (.agents/skills/, .claude/commands/, .claude/agents/, .agentkit/skills.manifest.json)
-```
-
-Open a PR to the repo's default working branch as usual.
-
-## For the rest of the team
-
-After the adoption PR merges, each engineer's entire setup is:
+## 6. Sync and prove
 
 ```bash
-git pull
-npm install     # (repo's own manager) — guardrails run from node_modules; this activates them
+npx agentkit sync      # installs managed assets + auto-wires the rulebook block (AGENTS.md/CLAUDE.md/GEMINI.md/.cursor); seeds one if none exists — works even for guardrails-only repos
+npx agentkit doctor    # strict: config keys/types/regexes, wiring, asset drift, rulebook block
+npx agentkit verify    # behavioral proof — every enabled guardrail blocks its fixture
 ```
 
-Nothing else. `npx agentkit doctor` any time to check the install.
+All green = done. Test telemetry once: `npx agentkit report --export` → `export ok`.
 
-## Rulebook auto-wiring (no manual step)
+## 7. Commit + PR
 
-`sync` maintains a marker-fenced block (`<!-- agentkit:start -->…<!-- agentkit:end -->`) in your rulebook files listing the synced skills/agents and the guardrail note — so agents actually discover and use them. It regenerates each sync, never touches content outside the markers, and seeds a `CLAUDE.md` if the repo has none. You never hand-edit the block. Opt out with `"rulebooks": false`, or target specific files with `"rulebooks": ["CLAUDE.md"]`. Full detail: [rulebook-injection.md](rulebook-injection.md).
+```
+package.json + lockfile · .gitignore · agentkit.config.json · .claude/settings.json
+AGENTS.md (or CLAUDE.md) with the wired block
++ synced assets: .agents/skills/ · .claude/commands/ · .claude/agents/ · .agentkit/skills.manifest.json
+.agentkit/guardrails/  (only if you added repo-local guardrails — committed source)
+```
 
-## What to expect once it's live
+PR to the repo's default working branch.
 
-Guardrails intercept agent tool calls in Claude Code sessions. **Blocks are normal and self-explanatory** — every block message states the compliant next step. Approvals are **user-only**: when a guardrail asks for one, run `npx agentkit approve <marker>` in your own terminal (or `! npx agentkit approve <marker>` inside the Claude Code prompt — `!` commands run as you, not the agent). Markers are one-shot, consumed per use; `tamper-guard` blocks agents from granting themselves approval or editing the enforcement config. Every decision is logged to `<stateDir>/guardrail-log.jsonl`; `npx agentkit stats` summarizes it. A false positive is worth a kit issue — the same fix then reaches every repo. Scope and residual risks: [threat-model.md](threat-model.md).
+## For the team
 
-## Refreshing to the latest kit
+After the adoption PR merges, every engineer's whole setup is:
 
 ```bash
-npm update @arches/agentkit            # newest tag within the pinned caret range; bumps the lock
-# or widen the range for a new major: npm i -D "github:Arches-Corporation/AgentKit#semver:^3.0.0"
-npx agentkit init --tool claude        # only when the update added a guardrail (idempotent)
-npx agentkit doctor
+git pull && npm install     # (repo's own manager) — guardrails run from node_modules; install activates them
 ```
 
-Logic fixes inside existing guardrails need the update only. Commit the bumped lockfile so the team picks it up on next install.
+Nothing else. `npx agentkit doctor` any time to check.
 
-## Migrating off the interim v2.0.x registry install (`@arches-corporation/agentkit`)
+## Daily use
+
+- **Blocks are normal** — each states the compliant next step.
+- **Approvals are user-only.** When a guardrail blocks a commit/push, *you* run `npx agentkit approve <marker>` in your own terminal (or `! npx agentkit approve <marker>` in the Claude Code prompt — `!` runs as you). Agents cannot self-approve (`tamper-guard`). One-shot, consumed per use.
+- **`/spec <TICKET>`** scaffolds the spec dir in the right lane before you write code.
+- Every decision logged to `<stateDir>/guardrail-log.jsonl`; `npx agentkit stats` summarizes. False positive → file a kit issue; the fix reaches every repo. Scope & residual risk: [threat-model.md](threat-model.md).
+
+## Refreshing
 
 ```bash
-npm rm @arches-corporation/agentkit
-npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"
-npx agentkit init --tool claude   # auto-removes hooks wired to the interim package name
-npx agentkit doctor
+npm update @arches/agentkit         # newest tag in the caret range; bumps the lock
+npx agentkit init --tool claude     # only when the update added a guardrail (idempotent) — doctor flags "enabled but not wired"
+npx agentkit sync && npx agentkit doctor
 ```
 
-Also delete the GitHub Packages lines from `.npmrc`.
+Commit the bumped lockfile + any newly synced assets so the team picks them up.
 
 ## Gotchas
 
-- **Global gitignores** can silently exclude source dirs (a `lib/` rule is common). `git check-ignore -v <path>` if something won't stage.
-- Existing `.claude/settings.json` is **merged**, never overwritten — repo-local hooks survive. `init` is idempotent.
-- Rollback = pin an exact tag: `npm i -D "github:Arches-Corporation/AgentKit#v2.1.0"`.
-- Repo-only rules go in `.agentkit/guardrails/<name>.cjs` — see [local-guardrails.md](local-guardrails.md); re-run `init` to wire.
-- Leftovers from an old adoption trial (untracked `.claude/settings.json`, stale synced skills)? Delete them and start from step 1 — `init` also auto-migrates known legacy wiring.
+- **Global gitignores** can exclude source dirs (`lib/`, `package-lock.json`). `git check-ignore -v <path>` if something won't stage.
+- **Repo ignores `CLAUDE.md`?** Use a committed `AGENTS.md` rulebook (step 5) — otherwise the block never distributes and agents don't discover the skills.
+- Existing `.claude/settings.json` is **merged**, never overwritten. `init` is idempotent.
+- Editor shows "property not allowed" on a new config key after a kit bump → stale JSON-schema cache; reload the window / clear schema cache. `agentkit doctor` is the source of truth.
+- Repo-only rules → `.agentkit/guardrails/<name>.cjs` ([local-guardrails.md](local-guardrails.md)); run `npx agentkit trust` then `init`.
+- Rollback = pin an exact tag: `npm i -D "github:Arches-Corporation/AgentKit#v2.7.1"`.
 
 ## Removing the kit
 
-npm ≥7 runs no uninstall lifecycle scripts, so removal is a two-step:
+npm ≥7 runs no uninstall scripts — two steps:
 
 ```bash
-npx agentkit uninstall        # removes synced assets, unwires .claude/settings.json + .cursor/hooks.json, deletes manifest + state
+npx agentkit uninstall          # removes synced assets, unwires settings + .cursor/hooks.json, deletes manifest + state
 npm uninstall @arches/agentkit
 ```
 
-What stays, deliberately:
-
-- `agentkit.config.json` + `.agentkit/guardrails/` — repo-owned; keeping them means a later `npm i` + `init` + `sync` restores the exact same state. `npx agentkit uninstall --purge` removes these too (and with them any local prototype guardrails).
-- The markdown rulebook (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursor/rules`, specs) — repo documentation, not kit-managed. The kit enforces rules; it doesn't own them.
-
-Non-kit hooks and settings in `.claude/settings.json` / `.cursor/hooks.json` are preserved — only entries pointing at the kit's runners are stripped.
+`agentkit.config.json` + `.agentkit/guardrails/` stay (repo-owned — a later reinstall restores the exact state; `--purge` removes them too). The markdown rulebook stays — the kit enforces rules, doesn't own them. Non-kit hooks in settings are preserved.
