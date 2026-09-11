@@ -83,10 +83,13 @@ test('render: ekb vars produce clean content with EKB values, no leftover placeh
   assert.match(sentry.content, /ekb-production/);
 });
 
-test('render: missing var without default fails with var name', () => {
+test('render: missing var skips the asset (not a hard error), names the var', () => {
   const cfg = { guardrails: {}, skills: { vars: {} } };
-  const { errors } = skillsLib.renderAll(cfg, 'EKB');
-  assert.ok(errors.some((e) => /security-audit.*beDir/.test(e)), JSON.stringify(errors));
+  const { errors, skipped, rendered } = skillsLib.renderAll(cfg, 'EKB');
+  assert.deepStrictEqual(errors, [], 'unresolved vars are skips, not hard errors');
+  const sa = skipped.find((s) => s.name === 'security-audit');
+  assert.ok(sa && sa.missing.includes('beDir'), JSON.stringify(skipped));
+  assert.ok(!rendered.some((r) => r.name === 'security-audit'), 'skipped asset is not rendered');
 });
 
 test('render: defaults from meta.json apply when var unset', () => {

@@ -192,10 +192,18 @@ function safeInstallPath(rel) {
   return norm !== '..' && !norm.startsWith('..' + path.sep);
 }
 
+// Returns:
+//   rendered — assets ready to install
+//   errors   — HARD problems (installPath escapes the repo — a kit bug); abort
+//   skipped  — assets with unresolved {{vars}} for this repo; recoverable —
+//              set the var or `exclude` the asset. Never aborts sync: an
+//              unconfigured backend skill in a frontend repo should skip, not
+//              block the whole install.
 function renderAll(config, packNameValue) {
   const vars = buildVars(config);
   const rendered = [];
   const errors = [];
+  const skipped = [];
   for (const asset of resolveAssets(config, packNameValue)) {
     if (!safeInstallPath(asset.installPath)) {
       errors.push(`${asset.kind} "${asset.name}": installPath "${asset.installPath}" escapes the repo — fix meta.json in the kit`);
@@ -203,7 +211,7 @@ function renderAll(config, packNameValue) {
     }
     const { content, missing } = render(asset, vars);
     if (missing.length) {
-      errors.push(`${asset.kind} "${asset.name}": unresolved template vars: ${missing.join(', ')} — set skills.vars in agentkit.config.json`);
+      skipped.push({ kind: asset.kind, name: asset.name, missing });
       continue;
     }
     rendered.push({
@@ -216,7 +224,7 @@ function renderAll(config, packNameValue) {
       hash: sha256(content),
     });
   }
-  return { rendered, errors };
+  return { rendered, errors, skipped };
 }
 
 function readManifest(repoRoot) {

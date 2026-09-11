@@ -78,7 +78,7 @@ Open the PR, CI (`test.yml`) must pass, merge. **The release is automatic**: `re
 **6. Consume it.** In the AIS repo:
 
 ```bash
-npm i -D "github:Arches-Corporation/AgentKit#semver:^2.3.1"    # caret picks up the new release on npm update
+npm i -D "github:Arches-Corporation/AgentKit#semver:^2.8.0"    # caret picks up the new release on npm update
 npx agentkit init --tool claude --project arches-internal-system   # sets "project" + wires the pack guardrails
 npx agentkit verify
 ```

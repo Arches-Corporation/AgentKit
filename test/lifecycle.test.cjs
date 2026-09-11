@@ -38,6 +38,27 @@ function runCli(args, cwd) {
   return spawnSync('node', [CLI, ...args], { encoding: 'utf8', cwd });
 }
 
+// ---- sync resilience: unresolved-var skills skip, not abort ----
+
+test('sync: unresolved-var skill skips, resolvable assets + block still land', () => {
+  // A frontend repo: no beDir/sentryProjects → the BE skills can't render.
+  // Sync must still install what resolves and wire the rulebook, not abort.
+  const repo = tmpRepo({
+    guardrails: { 'spec-first': { ticketPattern: 'X-\\d+' } },
+    skills: { vars: { orgName: 'X', rulebook: 'CLAUDE.md', checksLine: 'npm test', targetBranch: 'main', specDirDisplay: 'docs', apiContractRow: '-', designSystemRow: '-' } },
+  });
+  const r = runCli(['sync'], repo);
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /skip .*security-audit/);          // BE skill skipped
+  assert.match(r.stdout, /skipped \(unset vars\)/);          // summary notes it
+  assert.ok(fs.existsSync(path.join(repo, '.claude/commands/spec.md')), 'resolvable /spec still installed');
+  assert.ok(fs.existsSync(path.join(repo, 'CLAUDE.md')), 'rulebook block still seeded');
+  // doctor treats the skip as a warning, not a failure
+  const d = runCli(['doctor'], repo);
+  assert.match(d.stdout, /security-audit" skipped/);
+  assert.doesNotMatch(d.stdout, /FAIL/);
+});
+
 // ---- verify ----
 
 test('verify: synced repo passes, canned fixtures block', () => {

@@ -183,10 +183,15 @@ function cmdSync(args) {
   const cfg = loadConfig(root);
   const project = packName(cfg);
 
-  const { rendered, errors } = skillsLib.renderAll(cfg, project);
+  const { rendered, errors, skipped } = skillsLib.renderAll(cfg, project);
   if (errors.length) {
     for (const e of errors) process.stderr.write(`FAIL ${e}\n`);
     process.exit(1);
+  }
+  // Unresolved-var assets skip (warn) instead of aborting — a fresh repo still
+  // gets everything that resolves + the rulebook block.
+  for (const s of skipped) {
+    process.stdout.write(`skip     ${(s.kind + ':' + s.name).padEnd(30)} unresolved var(s): ${s.missing.join(', ')} — set skills.vars or exclude "${s.name}"\n`);
   }
   if (!rendered.length) {
     // Guardrails-only configuration (all assets excluded / none in the kit).
@@ -259,7 +264,8 @@ function cmdSync(args) {
   let kitVersion = 'unknown';
   try { kitVersion = require('../package.json').version; } catch { /* keep unknown */ }
   skillsLib.writeManifest(root, kitVersion, rendered);
-  process.stdout.write(`synced ${rendered.length} assets (${changes.length} changed) — manifest: ${skillsLib.MANIFEST_REL}\n`);
+  const skipNote = skipped.length ? `, ${skipped.length} skipped (unset vars)` : '';
+  process.stdout.write(`synced ${rendered.length} assets (${changes.length} changed${skipNote}) — manifest: ${skillsLib.MANIFEST_REL}\n`);
 
   const wired = wireRulebooks(root, cfg, rendered);
   if (wired.seeded) process.stdout.write(`auto-wired: seeded ${wired.seeded} with the agentkit block (no rulebook existed)\n`);
@@ -369,14 +375,16 @@ function runDoctor(args = []) {
   const assetsCheck = skillsLib.renderAll(cfg, project);
   {
     const manifest = skillsLib.readManifest(root);
+    // Hard errors (installPath escapes repo) always fail. Unresolved-var skips
+    // are a warning — the asset is opt-in via skills.vars or opt-out via exclude.
+    for (const e of assetsCheck.errors) fail(e);
+    for (const s of assetsCheck.skipped) {
+      warn(`${s.kind} "${s.name}" skipped — unresolved var(s): ${s.missing.join(', ')} (set skills.vars or exclude "${s.name}")`);
+    }
     if (!manifest) {
-      if (assetsCheck.errors.length) {
-        warn(`kit assets not configured (${assetsCheck.errors.length} missing var(s)) — set skills.vars, then run: agentkit sync`);
-      } else if (assetsCheck.rendered.length) {
+      if (assetsCheck.rendered.length) {
         warn(`${assetsCheck.rendered.length} kit assets available but never synced (run: agentkit sync)`);
       }
-    } else if (assetsCheck.errors.length) {
-      for (const e of assetsCheck.errors) fail(e);
     } else if (assetsCheck.rendered.length) {
       const actions = skillsLib.planSync(root, assetsCheck.rendered, manifest);
       let assetsOk = true;
@@ -530,7 +538,8 @@ function cmdVerify() {
     }
   }
 
-  const { rendered, errors } = skillsLib.renderAll(cfg, project);
+  const { rendered, errors, skipped } = skillsLib.renderAll(cfg, project);
+  for (const s of skipped) process.stdout.write(`ok   ${s.kind} "${s.name}" skipped (unresolved var(s): ${s.missing.join(', ')}) — set skills.vars or exclude\n`);
   if (errors.length) {
     ok = false;
     for (const e of errors) process.stdout.write(`FAIL ${e}\n`);
