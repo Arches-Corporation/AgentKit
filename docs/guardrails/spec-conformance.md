@@ -29,10 +29,13 @@ No ticket in the branch, or no ACs in the spec → nothing to enforce (passes).
 | `requireAcChecklist` | `false` | Tier 1 — ACs mirrored + ticked in the PR body |
 | `requireSpecCheck` | `false` | Tier 2 — `spec-check-passed` marker required |
 | `specCheckMarker` | `spec-check-passed` | marker name for Tier 2 |
-| `ticketPattern` / `specDirTemplate` | same as spec-first | how the spec dir is found |
+| `ticketPattern` / `specDirTemplate` | same as spec-first | how the spec dir is found (`specSource: ticket`) |
+| `specSource` | `ticket` | `ticket` = a ticket dir (spec-first); `changed` = the spec files this PR adds (spec-in-commit) |
+| `specPathPattern` | `^docs/(features\|tasks\|enhancements)/` | for `specSource: changed` — which diff files are specs |
+| `baseBranch` | — | for `specSource: changed` — base ref to diff (else `--base` from the command) |
 | `testCommand` | — | Tier 3 template with `{test}` for `agentkit spec-verify` |
 
-Match `ticketPattern`/`specDirTemplate` to your `spec-first` config.
+Match `ticketPattern`/`specDirTemplate` to your `spec-first` config. Repos that keep the spec **in the commit** (flat, date-named files, no ticket folders — the `spec-in-commit` model) set `specSource: "changed"`: Tier 1 parses ACs from the spec files the PR adds (via `git diff` vs the base), not a ticket dir.
 
 ## The Tier-2 marker (user-only)
 
