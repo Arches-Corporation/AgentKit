@@ -84,11 +84,37 @@ function specAcs(repoRoot, specDirRel) {
   const dir = path.join(repoRoot, specDirRel);
   let files = [];
   try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')); } catch { return []; }
+  return acsFromFiles(repoRoot, files.map((f) => path.join(specDirRel, f)));
+}
+
+function acsFromFiles(repoRoot, relFiles) {
   const acs = [];
-  for (const f of files) {
-    try { acs.push(...parseAcceptanceCriteria(fs.readFileSync(path.join(dir, f), 'utf8'))); } catch { /* skip */ }
+  for (const rel of relFiles) {
+    try { acs.push(...parseAcceptanceCriteria(fs.readFileSync(path.join(repoRoot, rel), 'utf8'))); } catch { /* skip */ }
   }
   return acs;
+}
+
+// The --base branch of a `gh pr create` command (default null → caller decides).
+function baseFromPrCreate(cmd) {
+  const m = String(cmd).match(/(?:--base|-B)[=\s]+(['"]?)([^'"\s]+)\1/);
+  return m ? m[2] : null;
+}
+
+// Spec files this branch adds/changes vs a base ref, filtered by specPathPattern.
+// For repos whose specs are flat, per-change files (spec-in-commit model) rather
+// than ticket folders.
+function changedSpecFiles(repoRoot, base, specPathPattern) {
+  const re = new RegExp(specPathPattern);
+  const ranges = [`${base}...HEAD`, `${base}..HEAD`, 'HEAD'];
+  for (const range of ranges) {
+    try {
+      const out = execSync(`git diff --name-only ${range}`, { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const files = out.split('\n').map((s) => s.trim()).filter((f) => f && re.test(f) && f.endsWith('.md'));
+      if (files.length) return files;
+    } catch { /* try next range */ }
+  }
+  return [];
 }
 
 module.exports = {
@@ -100,4 +126,7 @@ module.exports = {
   parseAcceptanceCriteria,
   normalizeAc,
   specAcs,
+  acsFromFiles,
+  baseFromPrCreate,
+  changedSpecFiles,
 };

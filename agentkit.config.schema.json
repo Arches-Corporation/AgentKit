@@ -331,6 +331,22 @@
             "testCommand": {
               "type": "string",
               "description": "Tier 3: command template with {test}; `agentkit spec-verify` runs it per linked AC."
+            },
+            "specSource": {
+              "type": "string",
+              "enum": [
+                "ticket",
+                "changed"
+              ],
+              "description": "How to locate the spec: ticket dir (spec-first) or the spec files this PR changes (spec-in-commit)."
+            },
+            "specPathPattern": {
+              "type": "string",
+              "description": "For specSource=changed: regex selecting spec files in the PR diff."
+            },
+            "baseBranch": {
+              "type": "string",
+              "description": "For specSource=changed: base ref to diff against (else --base from the gh command)."
             }
           }
         }

@@ -2,7 +2,8 @@
 
 const path = require('path');
 const {
-  isPrCreate, effectiveDir, resolveBody, currentBranch, ticketFromBranch, specAcs, normalizeAc,
+  isPrCreate, effectiveDir, resolveBody, currentBranch, ticketFromBranch, specAcs,
+  acsFromFiles, baseFromPrCreate, changedSpecFiles, normalizeAc,
 } = require('../lib/pr.cjs');
 
 const NAME = 'spec-conformance';
@@ -18,6 +19,13 @@ const DEFAULTS = {
   specCheckMarker: 'spec-check-passed',
   ticketPattern: '[A-Z][A-Z0-9]+-\\d+',
   specDirTemplate: 'docs/specs/features/{ticket}',
+  // How the ticket's spec is located:
+  //   'ticket'  — a ticket dir (spec-first model). Needs a ticket in the branch.
+  //   'changed' — the spec files this PR adds/changes (spec-in-commit model),
+  //               found via git diff vs the PR base, filtered by specPathPattern.
+  specSource: 'ticket',
+  specPathPattern: '^docs/(features|tasks|enhancements)/',
+  baseBranch: '',
 };
 
 function check(event, ctx) {
@@ -32,30 +40,42 @@ function check(event, ctx) {
   const rel = path.relative(ctx.repoRoot, dir);
   if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
 
-  const ticket = ticketFromBranch(currentBranch(ctx.repoRoot), opts.ticketPattern);
-  if (!ticket) return null; // no ticket → spec-first already governs; nothing to check here
+  const changed = opts.specSource === 'changed';
+  const ticket = changed ? null : ticketFromBranch(currentBranch(ctx.repoRoot), opts.ticketPattern);
+  if (!changed && !ticket) return null; // ticket mode, no ticket → spec-first governs
+  const label = ticket || 'this PR';
 
   // Tier 2 — the conformance review must have run.
   if (opts.requireSpecCheck && !ctx.markers.exists(opts.specCheckMarker)) {
     return {
       block:
         `BLOCKED: spec-conformance — open this PR only after the spec-check review. ` +
-        `Run the spec-check skill against ${ticket}; it records the review, then retry. ` +
-        `(No code↔spec review on record for ${ticket}.)`,
+        `Run the spec-check skill for ${label}; it records the review, then retry. ` +
+        `(No code↔spec review on record for ${label}.)`,
     };
   }
 
   // Tier 1 — every AC accounted for, ticked, in the PR body.
   if (opts.requireAcChecklist) {
-    const specDirRel = opts.specDirTemplate.replace('{ticket}', ticket);
-    const acs = specAcs(ctx.repoRoot, specDirRel);
-    if (!acs.length) return null; // no ACs in the spec — nothing to enforce
+    let acs;
+    let where;
+    if (changed) {
+      const base = opts.baseBranch || baseFromPrCreate(cmd) || 'origin/HEAD';
+      const files = changedSpecFiles(ctx.repoRoot, base, opts.specPathPattern);
+      acs = acsFromFiles(ctx.repoRoot, files);
+      where = files.length ? files.join(', ') : 'the spec added in this PR';
+    } else {
+      const specDirRel = opts.specDirTemplate.replace('{ticket}', ticket);
+      acs = specAcs(ctx.repoRoot, specDirRel);
+      where = `${specDirRel}/`;
+    }
+    if (!acs.length) return null; // no ACs to enforce
 
     const body = resolveBody(cmd, dir);
     if (body === null) {
       return {
         block:
-          `BLOCKED: spec-conformance — the PR body must mirror ${ticket}'s Acceptance Criteria as a ticked ` +
+          `BLOCKED: spec-conformance — the PR body must mirror ${label}'s Acceptance Criteria as a ticked ` +
           `checklist. Use --body-file/--body so the ACs can be verified.`,
       };
     }
@@ -70,9 +90,9 @@ function check(event, ctx) {
       const sample = unmet.slice(0, 4).map((a) => `“${a.text}”`).join('; ') + (unmet.length > 4 ? ' …' : '');
       return {
         block:
-          `BLOCKED: spec-conformance — ${unmet.length} of ${acs.length} Acceptance Criteria for ${ticket} ` +
+          `BLOCKED: spec-conformance — ${unmet.length} of ${acs.length} Acceptance Criteria for ${label} ` +
           `are not accounted for in the PR body as ticked (\`- [x]\`) items: ${sample}. ` +
-          `Mirror each AC from ${specDirRel}/ and check it off, or fix the code first.`,
+          `Mirror each AC from ${where} and check it off, or fix the code first.`,
       };
     }
   }

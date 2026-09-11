@@ -120,7 +120,7 @@ const BUILT_IN_OPTION_SPECS = {
   'rules-reminder': { text: 'stringOrStringArray', oncePerSession: 'boolean' },
   'tamper-guard': { protect: 'stringArray' },
   'usage-telemetry': { sinkMode: 'string', sinkPath: 'string', sinkUrl: 'string', sinkAuthTokenEnv: 'string', otelEndpoint: 'string', otelHeaders: 'stringArray', otelAuthTokenEnv: 'string' },
-  'spec-conformance': { requireAcChecklist: 'boolean', requireSpecCheck: 'boolean', specCheckMarker: 'string', ticketPattern: 'regex', specDirTemplate: 'string', testCommand: 'string' },
+  'spec-conformance': { requireAcChecklist: 'boolean', requireSpecCheck: 'boolean', specCheckMarker: 'string', ticketPattern: 'regex', specDirTemplate: 'string', testCommand: 'string', specSource: 'string', specPathPattern: 'regex', baseBranch: 'string' },
 };
 
 function typeNameOf(defaultValue) {
