@@ -4,6 +4,18 @@ Five minutes. Works for any shape — JS monorepo, pure Rails, anything. Node �
 
 **Lead does steps 1–7 once per repo. Teammates then just `git pull && install` (see [For the team](#for-the-team)).**
 
+## Quick start (one script)
+
+The mechanical steps (§1, 2, 4, 5, 6) are one command — install → init → sync → doctor → verify, auto-detecting your package manager. **From a fresh repo** (no prior install needed — the script installs the kit):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Arches-Corporation/AgentKit/main/scripts/onboard.sh | bash
+```
+
+(Already installed and want to re-run it? `bash node_modules/@arches/agentkit/scripts/onboard.sh`.)
+
+It stops and hands you the only two human steps: **§3 tune the spec policy** in `agentkit.config.json`, then **commit + PR**. The rest of this doc explains each step (and what to put in §3).
+
 ---
 
 ## 1. Install
