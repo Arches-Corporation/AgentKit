@@ -115,3 +115,9 @@ test('requireSpecCheck: marker present → pass', () => {
   c.markers.place('spec-check-passed');
   assert.strictEqual(guard.check(prCreate('x', dir), c), null);
 });
+
+test('parseAcceptanceCriteria: keeps items under nested sub-headings (RM-style)', () => {
+  const spec = '## Acceptance Criteria\n### Group A\n- [ ] item one\n### Group B\n- [ ] item two\n## Verify\n- [ ] not an AC\n';
+  const acs = parseAcceptanceCriteria(spec);
+  assert.deepStrictEqual(acs.map((a) => a.text), ['item one', 'item two']);
+});

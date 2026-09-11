@@ -58,9 +58,18 @@ function parseAcceptanceCriteria(specText) {
   const lines = String(specText).split('\n');
   const acs = [];
   let inAc = false;
+  let acLevel = 0; // heading depth of the "Acceptance Criteria" section
   for (const line of lines) {
-    if (/^#{1,6}\s/.test(line)) {
-      inAc = /acceptance criteria/i.test(line);
+    const h = line.match(/^(#{1,6})\s/);
+    if (h) {
+      const level = h[1].length;
+      if (!inAc) {
+        if (/acceptance criteria/i.test(line)) { inAc = true; acLevel = level; }
+      } else if (level <= acLevel) {
+        // a sibling/parent section ends the AC block; deeper sub-headings
+        // (e.g. `### Partner Search`) stay inside it.
+        inAc = false;
+      }
       continue;
     }
     if (!inAc) continue;
