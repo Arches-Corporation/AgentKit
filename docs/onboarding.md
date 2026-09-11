@@ -59,27 +59,37 @@ Set `codePathPatterns` to your product code (Rails `["^(app|lib|db)/"]`, JS `["^
 
 Omit `lanes` to keep the legacy any-`.md` gate. Add `"ticketUrlTemplate": "https://<jira>/browse/{ticket}"` so `/spec` fills the link. Scaffold specs with `/spec <TICKET>` (auto-detects the lane) — see [spec-first.md](guardrails/spec-first.md).
 
+**No spec convention yet?** (greenfield repo — no `docs/specs`, no openspec, no ticket keys.) Establish the AgentKit-native one: keep `spec-first` on with `specDirTemplate: "docs/specs/features/{ticket}"`, `mkdir -p docs/specs/features`, and state the rule in your committed rulebook (`AGENTS.md`). `/spec <TICKET>` then scaffolds each ticket's dir. That's how a repo with nothing becomes spec-driven — same shape as EKB.
+
+### Full spec-driven (the DoD) — enable `spec-conformance`
+
+`spec-first`/`spec-in-commit` enforce that a spec *exists*. To also hold each PR to the spec's **Acceptance Criteria**, enable `spec-conformance` — pick the `specSource` that matches how your repo stores specs:
+
+| Your spec model | Config |
+|---|---|
+| Ticket folders (`docs/specs/features/<TICKET>/`) | `"specSource": "ticket"` (default) + `ticketPattern`/`specDirTemplate` |
+| Spec in the commit / flat files (`docs/features/2026-…​md`) | `"specSource": "changed"` + `"specPathPattern": "^docs/(features\|tasks\|enhancements)/"` |
+| openspec (`openspec/changes/<slug>/`) | `"specSource": "changed"` + `"specPathPattern": "^openspec/changes/"` |
+
+```json
+"spec-conformance": { "enabled": true, "requireAcChecklist": true, "specSource": "changed", "specPathPattern": "^openspec/changes/" }
+```
+
+`requireAcChecklist` — every AC in the spec must be ticked in the PR body at `gh pr create`. Optional: `requireSpecCheck` (a `spec-check` review marker per PR) and Tier 3 `testCommand` + `{test: …}` AC refs run via `agentkit spec-verify` (executable ACs — see [spec-conformance.md](guardrails/spec-conformance.md)). **After adding it, re-run `agentkit init`** to wire the new guardrail.
+
 Skills/commands/agents are **on by default — keep them on**: supply `skills.vars` ([skills.md](skills.md)), `exclude` only what genuinely doesn't fit. `"skills": false` is the opt-out for guardrails-only repos.
 
 > **Skills with unset `{{vars}}` skip gracefully** — sync installs everything that resolves + the rulebook block, and warns (never aborts) on the rest. So a fresh repo works immediately; you refine later. On a **frontend** repo the backend skills (`performance-optimization`, `security-audit`, `sentry-investigator` — they need `beDir`/`sentryProjects`) skip until you either set those vars or `exclude` them; a **backend** repo is the mirror. `npx agentkit sync` and `doctor` name every skipped skill and its missing var. `exclude` the ones that don't fit your stack to silence the warnings.
 
-## 4. Telemetry (org usage tracking)
+## 4. Telemetry (org usage tracking) — on by default
 
-Route the kit's usage log to the shared Google Sheet. Add under `guardrails`:
+`init` already seeds `usage-telemetry` pointed at the shared Google Sheet (`sinkMode: "endpoint"` + the org `sinkUrl`) — **nothing to wire.** Confirm after sync with `npx agentkit report --export` → `ok`.
 
-```json
-"usage-telemetry": {
-  "enabled": true,
-  "sinkMode": "endpoint",
-  "sinkUrl": "https://script.google.com/macros/s/AKfycbzJJjPtitJrj_9K6FNkC98bc4c05niX3lH5w-qlfgLf4MWT8D0SFgyHqenu9vV4Vgdm/exec"
-}
-```
+Metadata only (session/skill/agent/command names + guardrail decisions — never prompt or code content), one POST per engineer per repo per day, fail-open. No token, no env, no per-engineer setup. To opt a repo out: `"usage-telemetry": { "enabled": false }`. Details + the Sheet setup: [telemetry-sink-apps-script.md](telemetry-sink-apps-script.md).
 
-Metadata only (session/skill/agent/command names + guardrail decisions — never prompt or code content), one POST per engineer per repo per day, fail-open. No token, no env, no per-engineer setup — the URL ships via git. Details + the Sheet setup: [telemetry-sink-apps-script.md](telemetry-sink-apps-script.md).
+## 5. gitignore — auto-fixed by init
 
-## 5. Fix the gitignore
-
-**A blanket `.claude/` ignore silently keeps the wiring — and `/spec`, subagents — out of git.** Commit the shared wiring + synced assets; ignore only local/personal + runtime state:
+`init` already handled this: a blanket `.claude/` ignore (which silently keeps the wiring + `/spec` + subagents out of git) is rewritten to the granular form, and `.agentkit/state/` is added. Nothing to do — the result:
 
 ```gitignore
 .claude/*
@@ -90,7 +100,7 @@ Metadata only (session/skill/agent/command names + guardrail decisions — never
 .agentkit/state/
 ```
 
-Ignore `.agentkit/state/` **only** — never the whole `.agentkit/` (that hides local guardrails). If your repo ignores `CLAUDE.md` as personal, keep a committed **`AGENTS.md`** as the shared rulebook instead (auto-wired in step 6, read by every tool).
+Never ignore the whole `.agentkit/` (that hides local guardrails) — only `state/`. If your repo ignores `CLAUDE.md` as personal, keep a committed **`AGENTS.md`** as the shared rulebook (auto-wired in step 6, read by every tool); init/sync won't un-ignore CLAUDE.md for you.
 
 ## 6. Sync and prove
 
@@ -112,6 +122,21 @@ AGENTS.md (or CLAUDE.md) with the wired block
 ```
 
 PR to the repo's default working branch.
+
+## Definition of Done — fully spec-driven
+
+A repo is done when all of these hold (mirror of what EKB/RM/b2b run):
+
+- [ ] **Latest kit**, `doctor` + `verify` green.
+- [ ] **Spec enforced + tuned** — `spec-first` (or `spec-in-commit`) on, with *your* real `ticketPattern` / `codePathPatterns` (not the init defaults). Monorepo → per-app paths.
+- [ ] **Lane-aware** — `spec-first.lanes` so migrations/endpoints require the Full trio (N/A for spec-in-commit / openspec).
+- [ ] **Conformance enforced** — `spec-conformance.requireAcChecklist` with the matching `specSource` (or openspec's own validation).
+- [ ] **`spec-check` available** (not excluded); **`/spec`** synced.
+- [ ] **Telemetry** → the shared Sheet (`sinkMode: endpoint`); `agentkit report --export` returns `ok`.
+- [ ] **Rulebook block committed** (a tracked `AGENTS.md`/`CLAUDE.md`), `/spec` + agents distribute (gitignore un-ignores `.claude/commands` + `.claude/agents`).
+- [ ] **Committed + merged** to the default branch.
+
+If a box is unchecked, the repo is *installed* but not *spec-driven*. Close the gap, don't ship half.
 
 ## For the team
 

@@ -286,3 +286,28 @@ test('unwireClaude: pure helper strips only kit commands', () => {
   assert.strictEqual(settings.hooks.PreToolUse.length, 1);
   assert.strictEqual(settings.hooks.PreToolUse[0].hooks[0].command, 'echo mine');
 });
+
+test('init: rewrites a blanket .claude/ gitignore to the granular form', () => {
+  const dir = tmpRepo(ekbConfig());
+  fs.mkdirSync(path.join(dir, '.git'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules\n.claude/\n');
+  runCli(['init', '--tool', 'claude'], dir);
+  const gi = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8');
+  assert.match(gi, /!\.claude\/commands\//);
+  assert.match(gi, /!\.claude\/agents\//);
+  assert.match(gi, /\.agentkit\/state\//);
+  // idempotent — second init makes no further change
+  const before = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8');
+  runCli(['init', '--tool', 'claude'], dir);
+  assert.strictEqual(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), before);
+});
+
+test('init: seeds usage-telemetry endpoint by default', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentkit-seed-'));
+  fs.mkdirSync(path.join(dir, '.git'));
+  runCli(['init', '--tool', 'claude'], dir);
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'agentkit.config.json'), 'utf8'));
+  const t = cfg.guardrails['usage-telemetry'];
+  assert.strictEqual(t.sinkMode, 'endpoint');
+  assert.match(t.sinkUrl, /script\.google\.com/);
+});
