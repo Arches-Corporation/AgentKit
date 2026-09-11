@@ -10,8 +10,9 @@ const dbGuard = require('./guardrails/db-guard.cjs');
 const rulesReminder = require('./guardrails/rules-reminder.cjs');
 const tamperGuard = require('./guardrails/tamper-guard.cjs');
 const usageTelemetry = require('./guardrails/usage-telemetry.cjs');
+const specConformance = require('./guardrails/spec-conformance.cjs');
 
-const GUARDRAILS = [hardStop, specFirst, privacyBlock, secretOutput, scoutBlock, forcePushGuard, dbGuard, rulesReminder, tamperGuard, usageTelemetry];
+const GUARDRAILS = [hardStop, specFirst, privacyBlock, secretOutput, scoutBlock, forcePushGuard, dbGuard, rulesReminder, tamperGuard, usageTelemetry, specConformance];
 
 const byName = new Map(GUARDRAILS.map((g) => [g.name, g]));
 

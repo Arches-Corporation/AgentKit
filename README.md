@@ -36,6 +36,7 @@ The `#semver:^X.Y.Z` range behaves like any npm caret: it resolves to the newest
 | `rules-reminder` | UserPromptSubmit | nothing — injects your configured rule summary once per session (silent until `text` is set) | [docs/guardrails/rules-reminder.md](docs/guardrails/rules-reminder.md) |
 | `tamper-guard` | PreToolUse (Edit/Write/Bash) | agent edits to the enforcement layer itself (`agentkit.config.json`, `.agentkit/**`, hook wiring) + agent-run `agentkit approve` — **always-on**, cannot be config-disabled | [docs/guardrails/tamper-guard.md](docs/guardrails/tamper-guard.md) |
 | `usage-telemetry` | SessionStart · PostToolUse (Skill/Task/Agent) · UserPromptSubmit | nothing — observer that records sessions, skill/agent/command usage and content-free prompt ticks (names and counts only, never prompt or tool-input content; Claude Code + Cursor) to `usage-log.jsonl`; rollup via `agentkit report`; sinks: file · endpoint (Sheet) · OTLP logs | [docs/telemetry.md](docs/telemetry.md) |
+| `spec-conformance` | PreToolUse (Bash, `gh pr create`) | **opt-in** — at PR-create, requires the ticket's Acceptance Criteria mirrored + ticked in the PR body (Tier 1) and/or a `spec-check` review marker (Tier 2); `agentkit spec-verify` runs AC-linked tests (Tier 3) | [docs/guardrails/spec-conformance.md](docs/guardrails/spec-conformance.md) |
 
 Every block message tells the agent the compliant next step. Escape hatches are deliberate, **user-only**, and auditable: one-shot approval via `npx agentkit approve <marker>` in the user's own terminal (`hard-stop`, `spec-first`, `force-push-guard`, `db-guard`) or an `APPROVED:` prefix (`privacy-block`, `scout-block`), each logged to `.agentkit/state/guardrail-log.jsonl`. What guardrails do and don't defend against: [docs/threat-model.md](docs/threat-model.md).
 
@@ -61,6 +62,7 @@ agentkit report [--json|--csv] [--since <days>] [--export]   usage rollup per us
 agentkit approve [marker]     USER-ONLY: grant a one-shot approval (default git-approved) — agents are blocked from running it
 agentkit trust                trust the current repo-local guardrails so they may execute (hashes stored outside the repo)
 agentkit spec <TICKET> [--full|--light]   scaffold the ticket's spec dir in the lane the change falls in (auto-detected)
+agentkit spec-verify <TICKET>             run each AC's linked {test:…}; assert every AC is proven (Tier 3 spec-driven)
 agentkit new <kind> <name>    scaffold a kit asset (guardrail|skill|command|agent) — kit repo only
 agentkit uninstall [--purge]  remove synced assets, unwire hooks, delete state (then npm uninstall)
 agentkit list                 list guardrails and synced assets with their tiers

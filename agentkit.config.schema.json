@@ -302,6 +302,37 @@
               "description": "Name of an env var holding the full Authorization header value for otel mode (e.g. \"Basic <base64>\" or \"Bearer <token>\") — never the credential itself. Injected at export time; overrides any Authorization in otelHeaders. https required."
             }
           }
+        },
+        "spec-conformance": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Part 3 spec-driven: hold PRs to the ticket spec at `gh pr create`.",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requireAcChecklist": {
+              "type": "boolean",
+              "description": "Every Acceptance Criterion in the spec must appear ticked in the PR body."
+            },
+            "requireSpecCheck": {
+              "type": "boolean",
+              "description": "The spec-check review marker must exist before the PR opens."
+            },
+            "specCheckMarker": {
+              "type": "string"
+            },
+            "ticketPattern": {
+              "type": "string"
+            },
+            "specDirTemplate": {
+              "type": "string"
+            },
+            "testCommand": {
+              "type": "string",
+              "description": "Tier 3: command template with {test}; `agentkit spec-verify` runs it per linked AC."
+            }
+          }
         }
       },
       "additionalProperties": {
