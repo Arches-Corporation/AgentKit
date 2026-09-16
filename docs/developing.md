@@ -72,8 +72,11 @@ npm test
 | `fix: …` / `docs: …` / `chore: …` | patch |
 | `feat: …` | minor |
 | `feat!: …` or `BREAKING` in body | major |
+| any subject containing `[skip release]` | **no release** |
 
 Open the PR, CI (`test.yml`) must pass, merge. **The release is automatic**: `release.yml` self-gates on the full suite, bumps the version from your commit subjects, tags, and publishes a GitHub Release. No manual versioning — but a mislabeled commit means a mislabeled release, so label honestly.
+
+To merge without cutting a release (docs-only changes, workflow tweaks, etc.) include `[skip release]` anywhere in the squash-merge commit subject.
 
 **6. Consume it.** In the AIS repo:
 
