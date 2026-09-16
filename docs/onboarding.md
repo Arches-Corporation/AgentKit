@@ -25,11 +25,11 @@ It stops and hands you the only two human steps: **§3 tune the spec policy** in
 ```bash
 cd <repo>
 # npm:
-npm i  -D "github:Arches-Corporation/AgentKit#semver:^2.8.0"
+npm i  -D "github:Arches-Corporation/AgentKit#semver:^2.13.0"
 # pnpm workspace (-w = workspace root):
-pnpm add -D -w "github:Arches-Corporation/AgentKit#semver:^2.8.0"
+pnpm add -D -w "github:Arches-Corporation/AgentKit#semver:^2.13.0"
 # yarn:
-yarn add -D "Arches-Corporation/AgentKit#semver:^2.8.0"
+yarn add -D "Arches-Corporation/AgentKit#semver:^2.13.0"
 # pure Rails / no package.json: `npm init -y`, set "private": true, then the npm line above
 ```
 
